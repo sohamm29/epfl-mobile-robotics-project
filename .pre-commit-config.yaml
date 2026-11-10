@@ -32,14 +32,3 @@ repos:
     rev: v8.24.2
     hooks:
       - id: gitleaks
-
-  - repo: https://github.com/hadolint/hadolint.git
-    rev: v2.12.0
-    hooks:
-    - id: hadolint-docker
-      name: Lint Dockerfiles
-      description: Runs hadolint Docker image to lint Dockerfiles
-      language: docker_image
-      types: ["dockerfile"]
-      args: ["--ignore", "DL3008", "--failure-threshold", "error"] #DL3008 is error about specifying package version
-      #entry: ghcr.io/hadolint/hadolint hadolint

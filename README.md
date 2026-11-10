@@ -1,43 +1,39 @@
-<div align="center">
+# Firewatch: A MICRO-452 Project
 
-<!-- Replace assets/logo.svg with your project logo -->
-<img src="assets/logo.svg" alt="Project Logo" width="320" />
-
-# Project Name
-
-One or two sentences describing what this project does and who it is for.
+Using the Thymio Robot within Aseba Studio, and simulating an environment wherein the goal is to put out a fire as fast as possible. This involves vision to detect the fire and obstacles, global navigation and path planning to determine best path to the fire, pose estimation to correct and adapt robot path while accounting for uncertainties in its sensors and motion, local navigation to avoid obstacles that may appear suddenly (rocks or tree debris) and controllers to make robot follow a given path.
 
 <!-- Badge URLs point at this repository; update the owner/repo path after generating a new repository from this template -->
-[![CI](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/ci.yml)
-[![Ruff Linting and Formatting](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/ruff.yml/badge.svg?branch=main)](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/ruff.yml)
-[![Pytest Unit-tests](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/pytest.yml/badge.svg?branch=main)](https://github.com/IT04DataCloud/data_ai-python_template_package/actions/workflows/pytest.yml)
-
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![CI](https://github.com/sohamm29/epfl-mobile-robotics-project/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sohamm29/epfl-mobile-robotics-project/actions/workflows/ci.yml)
 
 </div>
 
 ---
 
-## Documentation
+## Project Structure
 
-Comprehensive documentation is available in the `docs/` directory:
+```text
+.
+├── .github/                            # contains CI workflows for maintaining code quality (linting)
+├── assets/                             # contains all images/artifacts that are useful across project
+├── docs/                               # comprehensive documentation should go here
+├── sandbox/                            # test notebooks, scripts etc to test things
+├── src/                                # main code folder and report location
+    └── report.ipynb                    
+├── .editorconfig                       # ensures VSCode has same setup for everyone
+├── .gitattributes                      # ensures all line endings are same (avoid different OS issues)
+├── .gitconfig                          # useful git aliases to use
+├── .gitignore                          # tells git which files not to send to Github (cache, venv)
+├── .pre-commit-config.yaml             # code quality enforcer, makes sure correct formatting and so on
+├── .python-version                     # tells system which python version to use
+├── ci.sh                               # run code quality tests locally, to ensure all good
+├── pyproject.toml                      # ensures project dependencies and libraries
+└── README.md                           # this document
 
-| Document | Description |
-| --- | --- |
-| [Setup Guide](docs/setup.md) | Repo naming, environment setup, dependencies, pre-commit, commits, and issues. |
-| [CI Guide](docs/ci.md) | What the CI pipelines do and how to run them locally. |
-| [Template Package Reference](docs/Documentation_Template_Package.pdf) | Full reference: branch naming rules, conventions, and standards. |
-
-> [!TIP]
-> For setting up Claude, consult the [glintt-next-skills](https://github.com/IT04DataCloud/glintt-next-skills) repo!
-
-## Contributing
-
-We welcome contributions. Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on issues, tags, and development workflows.
+```
 
 ## Maintainers
 
 [Soham Malhotra](https://github.com/sohamm29)
+[Paul Lefeuvre](https://github.com/PaulLefeuvre)
+[Remi Khani](https://github.com/sohamm29)
+[Sébastien Pegada](https://github.com/sohamm29)
