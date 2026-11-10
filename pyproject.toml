@@ -5,7 +5,21 @@ description = "EPFL Mobile Robotics Project"
 readme = "README.md"
 requires-python = ">=3.12"
 # Runtime dependencies for your application go here.
-dependencies = []
+dependencies = [
+    "ipywidgets>=8.1.9",
+    "jupyter-contrib-nbextensions>=0.7.0",
+    "label-studio>=1.23.0",
+    "matplotlib>=3.11.2",
+    "numpy>=2.5.3",
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.0.6",
+    "pyserial>=3.5",
+    "scipy>=1.18.1",
+    "seaborn>=0.13.2",
+    "tdmclient>=0.1.21",
+    "tqdm>=4.70.1",
+    "ultralytics>=8.4.209",
+]
 
 [dependency-groups]
 # Development and tooling dependencies. Not installed in production.
