@@ -1,4 +1,4 @@
-# Firewatch: A MICRO-452 Project
+# Sauvabelin: A MICRO-452 Project
 
 Using the Thymio Robot within Aseba Studio, and simulating an environment wherein the goal is to put out a fire as fast as possible. This involves vision to detect the fire and obstacles, global navigation and path planning to determine best path to the fire, pose estimation to correct and adapt robot path while accounting for uncertainties in its sensors and motion, local navigation to avoid obstacles that may appear suddenly (rocks or tree debris) and controllers to make robot follow a given path.
 
@@ -18,7 +18,6 @@ Using the Thymio Robot within Aseba Studio, and simulating an environment wherei
 ├── docs/                               # comprehensive documentation should go here
 ├── sandbox/                            # test notebooks, scripts etc to test things
 ├── src/                                # main code folder and report location
-    └── report.ipynb                    
 ├── .editorconfig                       # ensures VSCode has same setup for everyone
 ├── .gitattributes                      # ensures all line endings are same (avoid different OS issues)
 ├── .gitconfig                          # useful git aliases to use
