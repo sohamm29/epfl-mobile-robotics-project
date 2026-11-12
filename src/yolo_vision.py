@@ -16,7 +16,7 @@ def global_vision():
             break
 
         # run YOLO inference on the current frame
-        results = model(frame)
+        results = model(frame, conf=0.8)
 
         # draw the custom bounding boxes onto the frame in real time
         annotated_frame = results[0].plot()
