@@ -26,4 +26,25 @@ To be able to follow the path, we must be able to accurately measure and determi
 
 While trying to follow its path, the robot must be able to avoid local obstacles that happen to appear, here the robot must make use of its sensors to percieve and adapt.
 
-## Pipeline
+## State Machine
+
+```mermaid
+
+stateDiagram-v2
+    [*] --> DETECT_ELEMENTS: Overhead vision camera
+    DETECT_ELEMENTS --> GENERATE_MAP: vertice detection
+    GENERATE_MAP --> GENERATE_GLOBAL_PLAN: A* 
+    GENERATE_GLOBAL_PLAN --> FOLLOW_PATH : Valid Path Generated
+
+    FOLLOW_PATH --> FOLLOW_PATH : Obstacle Dist > Threshold
+    FOLLOW_PATH --> LOCAL_AVOIDANCE : Obstacle Dist <= Threshold
+
+    LOCAL_AVOIDANCE --> FOLLOW_PATH : Obstacle Cleared
+
+    FOLLOW_PATH --> KIDNAPPED_STATE : Localization Anomaly Spike
+    LOCAL_AVOIDANCE --> KIDNAPPED_STATE : Localization Anomaly Spike
+
+    KIDNAPPED_STATE --> GENERATE_GLOBAL_PLAN : New Stable Pose Acquired
+    
+    FOLLOW_PATH --> [*] : Goal Reached
+``
