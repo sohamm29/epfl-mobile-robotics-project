@@ -3,9 +3,8 @@ from ultralytics import YOLO
 
 
 def global_vision():
-
     # define model and camera IO
-    model = YOLO("src/yolo11s_bmr_weights.pt") 
+    model = YOLO("src/yolo11s_bmr_weights.pt")
     cap = cv2.VideoCapture(0)
 
     # ensure camera available
@@ -30,6 +29,7 @@ def global_vision():
     # close program
     cap.release()
     cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     global_vision()

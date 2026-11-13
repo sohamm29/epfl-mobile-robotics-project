@@ -33,7 +33,7 @@ While trying to follow its path, the robot must be able to avoid local obstacles
 stateDiagram-v2
     [*] --> DETECT_ELEMENTS: Overhead vision camera
     DETECT_ELEMENTS --> GENERATE_MAP: vertice detection
-    GENERATE_MAP --> GENERATE_GLOBAL_PLAN: A* 
+    GENERATE_MAP --> GENERATE_GLOBAL_PLAN: A*
     GENERATE_GLOBAL_PLAN --> FOLLOW_PATH : Valid Path Generated
 
     FOLLOW_PATH --> FOLLOW_PATH : Obstacle Dist > Threshold
@@ -45,6 +45,6 @@ stateDiagram-v2
     LOCAL_AVOIDANCE --> KIDNAPPED_STATE : Localization Anomaly Spike
 
     KIDNAPPED_STATE --> GENERATE_GLOBAL_PLAN : New Stable Pose Acquired
-    
+
     FOLLOW_PATH --> [*] : Goal Reached
 ``

@@ -2,5 +2,5 @@
 
 Important Measurements that were obtained throughout project execution:
 
-- Camera Width (pixel): 
-- Camera Height (pixel): 
+- Camera Width (pixel):
+- Camera Height (pixel):
