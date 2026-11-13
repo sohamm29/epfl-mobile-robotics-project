@@ -1,0 +1,4 @@
+fire
+firetruck
+rock
+tree

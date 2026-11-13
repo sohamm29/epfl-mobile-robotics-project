@@ -1,0 +1,9 @@
+path: yolo_dataset
+train: images/train
+val: images/val
+
+names:
+  0: fire
+  1: firetruck
+  2: rock
+  3: tree
