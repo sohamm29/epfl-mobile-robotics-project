@@ -30,9 +30,26 @@ Using the Thymio Robot within Aseba Studio, and simulating an environment wherei
 
 ```
 
+## Setup
+
+Install dependencies and set up the virtual environment using [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync
+```
+
+Run CI and code quality checks across all files:
+
+```bash
+uv run pre-commit run -a
+```
+
+> [!NOTE]
+> The first time you run `pre-commit`, it may take a moment to initialize and install the hook environments.
+
 ## Maintainers
 
 [Soham Malhotra](https://github.com/sohamm29)
 [Paul Lefeuvre](https://github.com/PaulLefeuvre)
-[Remi Khani](https://github.com/sohamm29)
+[Remi Khani](https://github.com/remao15)
 [Sébastien Pegada](https://github.com/sohamm29)
