@@ -25,6 +25,7 @@ dev = [
     "ipywidgets>=8.1.9",
     "jupyter-contrib-nbextensions>=0.7.0",
     "matplotlib>=3.11.2",
+    "loguru>=0.8.0",
 ]
 
 [tool.ruff]
