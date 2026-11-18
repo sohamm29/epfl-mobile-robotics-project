@@ -1,5 +1,8 @@
 from loguru import logger
+import numpy as np
 
+# Type alias or structure representing the occupancy grid from MapGenerator
+type Grid = np.ndarray | None
 
 class MapGenerator():
 
@@ -11,7 +14,8 @@ class MapGenerator():
         Args:
          - debug (bool): This value activates logging and debug interface for deeper understanding and visualization.
         """
-        pass
+        self._map: Grid = None
+        self._debug = debug
 
     def _locate_april_tags(self):
         """Within the image, locate the april tags to get orientation, and spacing details of the map."""
