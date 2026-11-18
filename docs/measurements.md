@@ -2,5 +2,6 @@
 
 Important Measurements that were obtained throughout project execution:
 
-- Camera Width (pixel):
-- Camera Height (pixel):
+- Proximity Sensor Calibration
+- Wheel Speed (Left)
+- Wheel Speed (Right)
