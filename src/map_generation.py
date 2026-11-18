@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
 import matplotlib.pyplot as plt
@@ -142,8 +143,8 @@ class MapGenerator:
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
         green = cv2.inRange(hsv, np.array([35, 40, 30]), np.array([85, 255, 255]))
-        brown = cv2.inRange(hsv, np.array([5, 40, 20]), np.array([25, 220, 170]))
-        raw_mask = cv2.bitwise_or(green, brown)
+        grey = cv2.inRange(hsv, np.array([0, 0, 50]), np.array([179, 30, 200]))
+        raw_mask = cv2.bitwise_or(green, grey)
 
         # mask is on original image, resize to col, rows and interpolate between 0 - 255, check
         # >threshold to avoid computer noise detecting false obstacles
@@ -187,7 +188,7 @@ class MapGenerator:
     def _display_map(self, raw_image: np.ndarray, warped_image: np.ndarray) -> None:
         """
         Display 3 subplots:
-        1. Straight camera image
+        1. Raw camera image
         2. Warped and preprocessed image
         3. Occupancy grid (showing obstacles and obstacle dilation margin)
         """
@@ -197,10 +198,10 @@ class MapGenerator:
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
         axes[0].imshow(cv2.cvtColor(raw_image, cv2.COLOR_BGR2RGB))
-        axes[0].set_title("1. Straight Camera Image")
+        axes[0].set_title("1. Raw Camera Image")
 
         axes[1].imshow(cv2.cvtColor(warped_image, cv2.COLOR_BGR2RGB))
-        axes[1].set_title("2. Warped & Preprocessed Map")
+        axes[1].set_title("2. Warped & Preprocessed Image")
 
         # Visual grid: 0 = free (white), 0.45 = dilation (gray), 1 = obstacle (black)
         display_grid = self._map.grid.astype(float)
@@ -208,6 +209,13 @@ class MapGenerator:
             display_grid[self._dilation_mask > 0] = 0.45
 
         axes[2].imshow(display_grid, cmap="Greys", vmin=0.0, vmax=1.0, origin="upper")
+        rows, cols = self._map.dimensions
+        axes[2].set_xticks(np.arange(cols))
+        axes[2].set_yticks(np.arange(rows))
+        axes[2].set_xticks(np.arange(-0.5, cols, 1), minor=True)
+        axes[2].set_yticks(np.arange(-0.5, rows, 1), minor=True)
+        axes[2].grid(which="minor", color="lightgray", linestyle="-", linewidth=0.75)
+        axes[2].tick_params(which="minor", bottom=False, left=False)
         axes[2].scatter(
             self._map.start_pos[1],
             self._map.start_pos[0],
@@ -228,10 +236,28 @@ class MapGenerator:
                     label=f"Obstacle Dilation (+{self._dilation_margin} cell)",
                 )
             )
-        axes[2].legend(handles=handles, loc="upper right")
+        axes[2].legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0)
 
         plt.tight_layout()
         plt.show()
+
+    def _get_frame(self, image_path: str | Path | None = None) -> np.ndarray | None:
+        """
+        Load frame from disk if an image path is provided, otherwise capture from camera.
+        """
+        if image_path is not None:
+            frame = cv2.imread(str(image_path))
+            if frame is None:
+                logger.error(f"Failed to load image from path: {image_path}")
+            return frame
+
+        cam = cv2.VideoCapture(0)
+        check, frame = cam.read()
+        cam.release()
+        if not check:
+            logger.error("Failed to get Camera Frame.")
+            return None
+        return frame
 
     def generate(
         self,
@@ -239,6 +265,7 @@ class MapGenerator:
         map_width: float,
         map_height: float,
         dilation_margin: int = 0,
+        image_path: str | Path | None = None,
     ) -> Map | None:
         """
         Function to display map after generation.
@@ -248,16 +275,17 @@ class MapGenerator:
         - map_width (float): Physical map width (in cm)
         - map_height (float): Physical map height (in cm)
         - dilation_margin (int): Obstacle dilation margin (in number of grid cells)
+        - image_path (str | Path | None): Optional path to an image file for offline testing
         """
-        cam = cv2.VideoCapture(0)
-
-        check, frame = cam.read()
-        cam.release()
-        if not check:
-            logger.info("Failed to get Camera Frame.")
+        frame = self._get_frame(image_path=image_path)
+        if frame is None:
             return None
 
         aruco_tags_loc = self._locate_aruco_tags(image=frame)
+        if len(aruco_tags_loc) < 4:
+            logger.error("Failed to detect all 4 ArUco markers.")
+            return None
+
         self._generate_grid(
             cell_resolution=cell_resolution,
             map_height=map_height,
