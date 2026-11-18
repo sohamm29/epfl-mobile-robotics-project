@@ -23,13 +23,6 @@ class PathPlanner:
         """
         self.debug = debug
 
-    def _heuristic(self, node: Point, goal: Point) -> float | None:
-        """
-        Compute the heuristic cost estimate h(n)
-        between the current node and the goal.
-        """
-        pass
-
     def _display_path(self, map: Map, path: Path) -> None:
         """
         Function to display the output Path overlaid on the occupancy Grid.
