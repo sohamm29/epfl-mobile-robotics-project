@@ -236,7 +236,9 @@ class MapGenerator:
                     label=f"Obstacle Dilation (+{self._dilation_margin} cell)",
                 )
             )
-        axes[2].legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0)
+        axes[2].legend(
+            handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0
+        )
 
         plt.tight_layout()
         plt.show()
