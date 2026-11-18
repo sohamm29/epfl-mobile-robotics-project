@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+
 from map_generation import Map, Point
 
 
@@ -35,9 +36,7 @@ class PathPlanner:
         """
         pass
 
-    def plan(
-        self, map: Map
-    ) -> Path | None:
+    def plan(self, map: Map) -> Path | None:
         """
         Run the A* search algorithm on the input Grid,
         start -> goal and return a Path object.
