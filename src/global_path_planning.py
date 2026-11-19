@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
-from heapq import heappush, heappop
+from heapq import heappop, heappush
+
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Patch
-
+from loguru import logger
 from map_generation import Map, Point
+from matplotlib.patches import Patch
 
 
 @dataclass
@@ -27,13 +28,13 @@ class PathPlanner:
         """
         self.debug = debug
 
-    def _display_path(self, map: Map, path: Path, explored: set = None) -> None:
+    def _display_path(self, map: Map, path: Path, explored: set[Point] | None = None) -> None:
         """
         Function to display the output Path overlaid on the occupancy Grid.
         """
         if map.grid is None:
             return
-        
+
         fig, ax = plt.subplots(figsize=(5, 5))
 
         display_grid = map.grid.astype(float)
@@ -72,9 +73,7 @@ class PathPlanner:
 
         handles, labels = ax.get_legend_handles_labels()
         handles.append(Patch(facecolor="black", edgecolor="black", label="Obstacle"))
-        ax.legend(
-            handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0
-        )
+        ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0)
 
         plt.tight_layout()
         plt.show()
@@ -82,14 +81,14 @@ class PathPlanner:
     def _heuristic(self, a: Point, b: Point) -> int:
         """
         Simple heuristic for A* path planning algorithm, determining Euclidean distance to goal
-        
+
         Args:
          - a (Point): Current position in grid
          - b (Point): Goal position in grid
         """
-        return ((a[0] - b[0])**2 + (a[1] - b[1])**2) ** 0.5
+        return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
-    def plan(self, map: Map) -> Path | None:
+    def plan(self, map: Map) -> tuple[Path | None, set[Point], int]:
         """
         Run the A* search algorithm on the input Grid,
         start -> goal and return a Path object.
@@ -98,10 +97,15 @@ class PathPlanner:
         G = map.goal_pos
         came_from = {}
         g_costs = {S: 0}
-        explored = set()
+        explored: set[Point] = set()
         operation_count = 0
 
         open_set = [(self._heuristic(S, G), 0, S)]
+        current_pos: Point = S
+
+        if map.grid is None:
+            logger.info("Grid object within Map is None.")
+            return None, explored, operation_count
 
         while open_set:
             current_f_cost, current_g_cost, current_pos = heappop(open_set)
@@ -110,15 +114,15 @@ class PathPlanner:
             if current_pos == G:
                 break
 
-            neighbours = [ # Scan all surrounding positions, including diagonally 
-                (current_pos[0]+1, current_pos[1]), # Right
-                (current_pos[0]-1, current_pos[1]), # Left
-                (current_pos[0], current_pos[1]+1), # Down
-                (current_pos[0], current_pos[1]-1), # Up
-                (current_pos[0]+1, current_pos[1]+1), # Down-Right
-                (current_pos[0]-1, current_pos[1]+1), # Down-Left
-                (current_pos[0]+1, current_pos[1]-1), # Up-Right
-                (current_pos[0]-1, current_pos[1]-1), # Down-Right
+            neighbours = [  # Scan all surrounding positions, including diagonally
+                (current_pos[0] + 1, current_pos[1]),  # Right
+                (current_pos[0] - 1, current_pos[1]),  # Left
+                (current_pos[0], current_pos[1] + 1),  # Down
+                (current_pos[0], current_pos[1] - 1),  # Up
+                (current_pos[0] + 1, current_pos[1] + 1),  # Down-Right
+                (current_pos[0] - 1, current_pos[1] + 1),  # Down-Left
+                (current_pos[0] + 1, current_pos[1] - 1),  # Up-Right
+                (current_pos[0] - 1, current_pos[1] - 1),  # Down-Right
             ]
 
             for neighbour in neighbours:
@@ -136,7 +140,7 @@ class PathPlanner:
 
                             f_cost = tentative_g_cost + self._heuristic(neighbour, G)
                             heappush(open_set, (f_cost, tentative_g_cost, neighbour))
-        
+
         if current_pos == G:
             solution: list[Point] = []
             while current_pos != S:
@@ -150,8 +154,5 @@ class PathPlanner:
                 self._display_path(map, ideal_path, explored=explored)
             return ideal_path, explored, operation_count
         else:
-            print("Path planning could not find a solution.")
+            logger.info("Path planning could not find a solution.")
             return None, explored, operation_count
-
-            
-

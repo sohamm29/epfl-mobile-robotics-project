@@ -86,7 +86,7 @@ class MapGenerator:
         cols = int(map_width // cell_resolution)
         rows = int(map_height // cell_resolution)
         self._map.dimensions = (rows, cols)
-        self._map.grid = np.zeros(self._map.dimensions, dtype=int)
+        self._map.grid = np.zeros(self._map.dimensions, dtype=float)
 
     def _find_blob_center(
         self,
@@ -160,10 +160,12 @@ class MapGenerator:
             if dilation_margin > 0
             else raw_grid
         )
+        dilated_grid = dilated_grid.astype(float)
 
         # get independent dilation mask, to display seperately on map.
-        self._dilation_mask = (dilated_grid - raw_grid).astype(int)
-        self._map.grid = dilated_grid.astype(int)
+        self._dilation_mask = (dilated_grid - raw_grid).astype(float)
+        dilated_grid[self._dilation_mask > 0] = 0.5
+        self._map.grid = dilated_grid
 
         if self._debug and dilation_margin > 0:
             logger.info(
@@ -184,6 +186,42 @@ class MapGenerator:
         Fire in HSV: red-orange Hue (0-15), high Saturation (160-255), Value (150-255).
         """
         self._map.goal_pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
+
+    def _post_process_grid(self) -> None:
+        """
+        Add a boundary around Grid and update dimensions to match this change.
+        """
+        if self._map.grid is None:
+            return
+
+        # Pad 1 cell on all 4 sides with cost 1
+        self._map.grid = np.pad(self._map.grid, pad_width=1, mode="constant", constant_values=1)
+        self._map.dimensions = self._map.grid.shape
+
+        # Shift start, goal, and dilation mask by +1 to match padded coordinates
+        self._map.start_pos = (self._map.start_pos[0] + 1, self._map.start_pos[1] + 1)
+        self._map.goal_pos = (self._map.goal_pos[0] + 1, self._map.goal_pos[1] + 1)
+
+        if self._dilation_mask is not None:
+            self._dilation_mask = np.pad(self._dilation_mask, pad_width=1, mode="constant", constant_values=0)
+
+    def _get_frame(self, image_path: str | Path | None = None) -> np.ndarray | None:
+        """
+        Load frame from disk if an image path is provided, otherwise capture from camera.
+        """
+        if image_path is not None:
+            frame = cv2.imread(str(image_path))
+            if frame is None:
+                logger.error(f"Failed to load image from path: {image_path}")
+            return frame
+
+        cam = cv2.VideoCapture(0)
+        check, frame = cam.read()
+        cam.release()
+        if not check:
+            logger.error("Failed to get Camera Frame.")
+            return None
+        return frame
 
     def _display_map(self, raw_image: np.ndarray, warped_image: np.ndarray) -> None:
         """
@@ -236,30 +274,10 @@ class MapGenerator:
                     label=f"Obstacle Dilation (+{self._dilation_margin} cell)",
                 )
             )
-        axes[2].legend(
-            handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0
-        )
+        axes[2].legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1), borderaxespad=0.0)
 
         plt.tight_layout()
         plt.show()
-
-    def _get_frame(self, image_path: str | Path | None = None) -> np.ndarray | None:
-        """
-        Load frame from disk if an image path is provided, otherwise capture from camera.
-        """
-        if image_path is not None:
-            frame = cv2.imread(str(image_path))
-            if frame is None:
-                logger.error(f"Failed to load image from path: {image_path}")
-            return frame
-
-        cam = cv2.VideoCapture(0)
-        check, frame = cam.read()
-        cam.release()
-        if not check:
-            logger.error("Failed to get Camera Frame.")
-            return None
-        return frame
 
     def generate(
         self,
@@ -294,9 +312,7 @@ class MapGenerator:
             map_width=map_width,
         )
 
-        preproc_and_warped_image = self._preprocess_image(
-            image=frame, aruco_tags_loc=aruco_tags_loc
-        )
+        preproc_and_warped_image = self._preprocess_image(image=frame, aruco_tags_loc=aruco_tags_loc)
 
         self._detect_obstacles(
             image=preproc_and_warped_image,
@@ -304,6 +320,8 @@ class MapGenerator:
         )
         self._detect_start(image=preproc_and_warped_image)
         self._detect_goal(image=preproc_and_warped_image)
+
+        self._post_process_grid()
 
         if self._debug:
             self._display_map(raw_image=frame, warped_image=preproc_and_warped_image)
