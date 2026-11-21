@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 from pathlib import Path
+from data_types import Map, Point
 
 import cv2
 import matplotlib.pyplot as plt
@@ -7,26 +7,9 @@ import numpy as np
 from loguru import logger
 from matplotlib.patches import Patch
 
-# Type alias or structure representing the occupancy grid from MapGenerator
-type Grid = np.ndarray | None
-type Point = tuple[int, int]
-
 SPACEBAR_KEY_VAL = 32
 PX_PER_CELL = 20
 OBSTACLE_DETECTION_NOISE_THRESHOLD = 50
-
-
-@dataclass
-class Map:
-    """
-    Represents our global Map object, and all potentionally required elements within it.
-    """
-
-    grid: Grid = None
-    dimensions: tuple[int, int] = (0, 0)
-    start_pos: Point = (0, 0)
-    goal_pos: Point = (0, 0)
-
 
 class MapGenerator:
     def __init__(self, debug: bool = False):
@@ -178,14 +161,18 @@ class MapGenerator:
         Detect position of Thymio Robot within the Map.
         White in HSV: any Hue (0-179), low Saturation (0-55), high Value (200-255).
         """
-        self._map.start_pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
+        pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
+        heading = None
+        self._map.start_state = (pos, heading)
 
     def _detect_goal(self, image: np.ndarray) -> None:
         """
         Detect goal (fire) position within Map.
         Fire in HSV: red-orange Hue (0-15), high Saturation (160-255), Value (150-255).
         """
-        self._map.goal_pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
+        pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
+        heading = None
+        self._map.goal_state = (pos, heading)
 
     def _post_process_grid(self) -> None:
         """
@@ -199,8 +186,8 @@ class MapGenerator:
         self._map.dimensions = self._map.grid.shape
 
         # Shift start, goal, and dilation mask by +1 to match padded coordinates
-        self._map.start_pos = (self._map.start_pos[0] + 1, self._map.start_pos[1] + 1)
-        self._map.goal_pos = (self._map.goal_pos[0] + 1, self._map.goal_pos[1] + 1)
+        self._map.start_state = ((self._map.start_state[0][0] + 1, self._map.start_state[0][1] + 1), self._map.start_state[1])
+        self._map.goal_state = ((self._map.goal_state[0][0] + 1, self._map.goal_state[0][1] + 1), self._map.goal_state[1])
 
         if self._dilation_mask is not None:
             self._dilation_mask = np.pad(self._dilation_mask, pad_width=1, mode="constant", constant_values=0)
@@ -255,13 +242,13 @@ class MapGenerator:
         axes[2].grid(which="minor", color="lightgray", linestyle="-", linewidth=0.75)
         axes[2].tick_params(which="minor", bottom=False, left=False)
         axes[2].scatter(
-            self._map.start_pos[1],
-            self._map.start_pos[0],
+            self._map.start_state[0][1],
+            self._map.start_state[0][0],
             c="blue",
             s=80,
             label="Start",
         )
-        axes[2].scatter(self._map.goal_pos[1], self._map.goal_pos[0], c="red", s=80, label="Goal")
+        axes[2].scatter(self._map.goal_state[0][1], self._map.goal_state[0][0], c="red", s=80, label="Goal")
         axes[2].set_title("3. Occupancy Grid")
 
         handles, labels = axes[2].get_legend_handles_labels()
