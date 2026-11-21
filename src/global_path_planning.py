@@ -2,6 +2,7 @@ from heapq import heappop, heappush
 from data_types import Map, Path, Point, State
 
 import matplotlib.pyplot as plt
+from time import perf_counter
 import numpy as np
 from loguru import logger
 from map_generation import Map, Point
@@ -169,3 +170,83 @@ class PathPlanner:
         else:
             logger.info("Path planning could not find a solution.")
             return None, explored, operation_count
+
+    def _bresenham_line(self, a: Point, b: Point) -> Path:
+        """
+        Given two Point coordinates, use the Bresenham algorithm to determine the straight-line Path from one to another
+        
+        Args:
+         - a: starting coordinate
+         - b: ending coordinate
+        """
+        line: list[Point] = []
+        dx = abs(a[0] - b[0])
+        sx = 1 if (a[0] < b[0]) else -1
+        dy = -abs(a[1] - b[1])
+        sy = 1 if (a[1] < b[1]) else -1
+        error = dx + dy
+
+        x, y = a[0], a[1]
+        while True:
+            line.append((x, y))
+            e2 = 2*error
+            if e2 >= dy:
+                if x == b[0]:
+                    break
+                error += dy
+                x += sx
+            if e2 <= dx:
+                if y == b[1]:
+                    break
+                error += dx
+                y += sy
+            
+        return Path(waypoints=line)        
+
+    def LOS_pruning(self, map: Map, path: Path, max_dist: int = 5, max_cost: float = 0) -> Path:
+        """
+        Line-of-sight pruning determines what points in the Path can be skipped entirlely for a smaller Path - for each point
+        we see what the farthest point that we can see without any obstacles is, and skip any points in between.
+        """
+        pruned_points: list[Point] = [path.waypoints[0]]
+
+        logger.debug(f"Path waypoints: {path.waypoints}")
+
+        i = 0
+        start_time = perf_counter()
+        while i < len(path.waypoints)-1:
+            waypoint = path.waypoints[i]
+
+            best_j = i + 1
+            for j in range(i + 2, i + 3 + max_dist):
+                line = self._bresenham_line(waypoint, path.waypoints[j])
+                logger.debug(f"Checking index {i} to {j}: {line.waypoints}")
+
+                collision = False
+                for p in line.waypoints:
+                    if map.grid[p[0]][p[1]] > max_cost:
+                        collision = True
+                        break
+
+                if collision:
+                    best_j = j-1
+                    break
+                elif j == len(path.waypoints)-1:
+                    best_j = len(path.waypoints)-1
+                    break
+
+            # Snap best_j to the maximum value as a precaution
+            best_j = best_j if best_j <= (len(path.waypoints)-1) else (len(path.waypoints)-1)
+            
+            pruned_points.append(path.waypoints[best_j])
+            i = best_j
+
+        end_time = perf_counter()
+        pruned_path = Path(waypoints=pruned_points, cost=path.cost)
+        logger.info(f"Original Path Size = {len(path.waypoints)} Pruned Path Size = {len(pruned_path.waypoints)}")
+        logger.info(f"Pruning Duration = {(end_time - start_time):.4f}s")
+        if self.debug:
+            self._display_path(map, pruned_path)
+        return pruned_path
+            
+
