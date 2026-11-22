@@ -2,8 +2,8 @@ from data_types import Command, Map, Mode, SensorData, State
 from local_avoidance import LocalAvoider
 from loguru import logger
 from map_generation import MapGenerator
+from path_following_pid import PIDController
 from path_planning import PathPlanner
-from pid_controller import PIDController
 from pose_estimation import PoseEstimator
 
 COMMAND_STOP = Command(motor_left_speed=0, motor_right_speed=0, leds_top=(0, 0, 0))
