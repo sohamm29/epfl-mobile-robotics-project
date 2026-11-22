@@ -1,7 +1,7 @@
-from data_types import State, SensorData, Command
-from loguru import logger
+from data_types import Command, SensorData, State
 
-class LocalAvoider():
+
+class LocalAvoider:
     """
     PID Controller used to follow the path.
     """

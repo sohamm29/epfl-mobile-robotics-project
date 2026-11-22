@@ -1,6 +1,7 @@
-from data_types import SensorData, State  
+from data_types import SensorData, State
 
-class PoseEstimator():
+
+class PoseEstimator:
     """
     Responsible for estimating pose of Robot
     """
@@ -11,20 +12,18 @@ class PoseEstimator():
         """
         self._debug = debug
 
-
     def _display(self) -> None:
         """
         Display the probability distribution of states.
         """
         raise NotImplementedError("TBD")
 
-
     def is_kidnapped(self, current_state: State, data: SensorData) -> bool:
         """
         Returns True if detected that robot has been kidnapped (i.e. lifted off the ground.)
         """
         raise NotImplementedError("TBD")
-    
+
     def move(self, left_speed: int, right_speed: int, dt: float) -> None:
         """
         Updated probability with motion rules updates.

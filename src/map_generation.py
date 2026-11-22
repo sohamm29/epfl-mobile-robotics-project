@@ -46,9 +46,7 @@ class MapGenerator:
             return []
 
         if len(detected_tags) < 4:
-            logger.error(
-                f"Detected tags ({[elem.tid for elem in detected_tags]}) less than 4 = {len(detected_tags)}"
-            )
+            logger.error(f"Detected tags ({[elem.tid for elem in detected_tags]}) less than 4 = {len(detected_tags)}")
             return []
 
         tags = {tag.tid: tag for tag in detected_tags}
@@ -151,17 +149,14 @@ class MapGenerator:
 
         # mask is on original image, resize to col, rows and interpolate between 0 - 255, check
         # >threshold to avoid computer noise detecting false obstacles
-        raw_grid = (
-            cv2.resize(raw_mask, (cols, rows), interpolation=cv2.INTER_AREA)
-            > OBSTACLE_DETECTION_NOISE_THRESHOLD
-        ).astype(np.uint8)
+        raw_grid = (cv2.resize(raw_mask, (cols, rows), interpolation=cv2.INTER_AREA) > OBSTACLE_DETECTION_NOISE_THRESHOLD).astype(
+            np.uint8
+        )
 
         # dilation, add a 1 near any cell that has a one
         self._dilation_margin = dilation_margin
         dilated_grid = (
-            cv2.dilate(raw_grid, np.ones((3, 3), np.uint8), iterations=dilation_margin)
-            if dilation_margin > 0
-            else raw_grid
+            cv2.dilate(raw_grid, np.ones((3, 3), np.uint8), iterations=dilation_margin) if dilation_margin > 0 else raw_grid
         )
         dilated_grid = dilated_grid.astype(float)
 

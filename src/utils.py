@@ -1,7 +1,7 @@
-from data_types import ArucoTag, State
 import cv2
 import numpy as np
-from loguru import logger
+from data_types import ArucoTag, State
+
 
 def get_aruco_tag(image: np.ndarray, tag_ids: list[int]) -> list[ArucoTag] | None:
     """
@@ -17,11 +17,7 @@ def get_aruco_tag(image: np.ndarray, tag_ids: list[int]) -> list[ArucoTag] | Non
 
     target_set = set(tag_ids)
 
-    target_map = {
-        int(tag_id): tag
-        for tag_id, tag in zip(ids.flatten(), tags)
-        if int(tag_id) in target_set
-    }
+    target_map = {int(tag_id): tag for tag_id, tag in zip(ids.flatten(), tags, strict=False) if int(tag_id) in target_set}
 
     output: list[ArucoTag] = []
 
@@ -51,5 +47,5 @@ def get_aruco_tag(image: np.ndarray, tag_ids: list[int]) -> list[ArucoTag] | Non
                 ),
             )
         )
-        
+
     return output

@@ -1,10 +1,10 @@
-from data_types import Map, Mode, State, SensorData, Command
+from data_types import Command, Map, Mode, SensorData, State
+from local_avoidance import LocalAvoider
+from loguru import logger
 from map_generation import MapGenerator
 from path_following import PIDController
 from path_planning import PathPlanner
 from pose_estimation import PoseEstimator
-from local_avoidance import LocalAvoider
-from loguru import logger
 
 COMMAND_STOP = Command(motor_left_speed=0, motor_right_speed=0, leds_top=(0, 0, 0))
 COMMAND_KIDNAPPED = Command(motor_left_speed=0, motor_right_speed=0, leds_top=(32, 0, 0))
@@ -13,18 +13,20 @@ COMMAND_GOAL_REACHED = Command(motor_left_speed=0, motor_right_speed=0, leds_top
 COMMAND_ERROR = Command(motor_left_speed=0, motor_right_speed=0, leds_top=(32, 0, 32))
 
 
-class StateMachine():
+class StateMachine:
     """
     Defines the Real-time State Machine used to Control Robot.
     """
-    def __init__(self,
-                 map: Map,
-                 map_generator: MapGenerator,
-                 path_planner: PathPlanner,
-                 pose_estimator: PoseEstimator,
-                 path_follower: PIDController,
-                 local_avoider: LocalAvoider,
-                debug: bool = False,
+
+    def __init__(
+        self,
+        map: Map,
+        map_generator: MapGenerator,
+        path_planner: PathPlanner,
+        pose_estimator: PoseEstimator,
+        path_follower: PIDController,
+        local_avoider: LocalAvoider,
+        debug: bool = False,
     ) -> None:
         """
         Instantiate instance of State Machine for Robot Operation.
@@ -45,9 +47,7 @@ class StateMachine():
         """Current operating mode of the State Machine."""
         return self._mode
 
-    def step(
-            self, sensor_data: SensorData
-    ) -> Command:
+    def step(self, sensor_data: SensorData) -> Command:
         """
         Defines what instructions to send to robot.
         """
@@ -72,7 +72,7 @@ class StateMachine():
         match self._mode:
             case Mode.KIDNAPPED:
                 return COMMAND_KIDNAPPED
-            
+
             case Mode.RESTART:
                 if not sensor_data.pose_from_camera:
                     return COMMAND_KIDNAPPED
@@ -85,15 +85,15 @@ class StateMachine():
                 if not path:
                     self._mode = Mode.ERROR
                     return COMMAND_ERROR
-                
+
                 pruned_new_path = self._path_planner.LOS_pruning(map=self._map, path=path)
                 self._path_follower.setup(pruned_new_path)
                 self._mode = Mode.PATH_FOLLOWING
                 return COMMAND_RESTART
-            
+
             case Mode.LOCAL_AVOIDANCE:
                 return self._local_avoider.avoid(self._current_state, sensor_data)
-            
+
             case Mode.PATH_FOLLOWING:
                 step = self._path_follower.next(self._current_state, sensor_data.dt)
                 if step:

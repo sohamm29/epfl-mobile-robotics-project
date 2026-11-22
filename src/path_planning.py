@@ -1,14 +1,14 @@
 from heapq import heappop, heappush
-from data_types import Map, Path, Point, State
+from time import perf_counter
 
 import matplotlib.pyplot as plt
-from time import perf_counter
 import numpy as np
+from data_types import Map, Path, Point, State
 from loguru import logger
-from map_generation import Map, Point
 from matplotlib.patches import Patch
 
 TURNING_WEIGHT = 1.0 / 180.0
+
 
 class PathPlanner:
     def __init__(self, debug: bool = False):
@@ -74,7 +74,8 @@ class PathPlanner:
 
     def _angle_diff(self, a: float, b: float) -> float:
         """
-        Find the absolute, minimum difference between two angles (degrees), wrapping to stay in the range [-180, 180]
+        Find the absolute, minimum difference between two angles (degrees),
+        wrapping to stay in the range [-180, 180]
         """
         delta = a - b
         if abs(delta) > 180.0:
@@ -127,14 +128,15 @@ class PathPlanner:
                 break
 
             r, c = int(current_state.position[0]), int(current_state.position[1])
-            neighbours = [  # Scan all surrounding positions, including diagonally (0 deg = North/Up, 90 deg = East/Right)
-                State(position=(r + 1, c), heading=180),      # Down (South)
-                State(position=(r - 1, c), heading=0),        # Up (North)
-                State(position=(r, c + 1), heading=90),       # Right (East)
-                State(position=(r, c - 1), heading=-90),      # Left (West)
+            neighbours = [  # Scan all surrounding positions, including diagonally
+                # (0 deg = North/Up, 90 deg = East/Right)
+                State(position=(r + 1, c), heading=180),  # Down (South)
+                State(position=(r - 1, c), heading=0),  # Up (North)
+                State(position=(r, c + 1), heading=90),  # Right (East)
+                State(position=(r, c - 1), heading=-90),  # Left (West)
                 State(position=(r + 1, c + 1), heading=135),  # Down-Right (South-East)
-                State(position=(r - 1, c + 1), heading=45),   # Up-Right (North-East)
-                State(position=(r + 1, c - 1), heading=-135), # Down-Left (South-West)
+                State(position=(r - 1, c + 1), heading=45),  # Up-Right (North-East)
+                State(position=(r + 1, c - 1), heading=-135),  # Down-Left (South-West)
                 State(position=(r - 1, c - 1), heading=-45),  # Up-Left (North-West)
             ]
 
@@ -158,7 +160,7 @@ class PathPlanner:
 
                             f_cost = tentative_g_cost + self._heuristic(neighbour, G)
                             heappush(open_set, (f_cost, tentative_g_cost, operation_count, neighbour))
-        
+
         if current_state.position == G.position:
             solution: list[Point] = []
             while current_state.position != S.position:
@@ -177,8 +179,9 @@ class PathPlanner:
 
     def _bresenham_line(self, a: Point, b: Point) -> Path:
         """
-        Given two Point coordinates, use the Bresenham algorithm to determine the straight-line Path from one to another
-        
+        Given two Point coordinates, use the Bresenham algorithm to
+        determine the straight-line Path from one to another
+
         Args:
          - a: starting coordinate
          - b: ending coordinate
@@ -193,7 +196,7 @@ class PathPlanner:
         x, y = a[0], a[1]
         while True:
             line.append((x, y))
-            e2 = 2*error
+            e2 = 2 * error
             if e2 >= dy:
                 if x == b[0]:
                     break
@@ -204,13 +207,14 @@ class PathPlanner:
                     break
                 error += dx
                 y += sy
-            
-        return Path(waypoints=line)        
+
+        return Path(waypoints=line)
 
     def LOS_pruning(self, map: Map, path: Path, max_dist: int = 5, max_cost: float = 0) -> Path:
         """
-        Line-of-sight pruning determines what points in the Path can be skipped entirlely for a smaller Path - for each point
-        we see what the farthest point that we can see without any obstacles is, and skip any points in between.
+        Line-of-sight pruning determines what points in the Path can be skipped entirlely for a smaller Path -
+        for each point we see what the farthest point that we can see without any obstacles is,
+        and skip any points in between.
         """
         pruned_points: list[Point] = [path.waypoints[0]]
 
@@ -218,7 +222,7 @@ class PathPlanner:
 
         i = 0
         start_time = perf_counter()
-        while i < len(path.waypoints)-1:
+        while i < len(path.waypoints) - 1:
             waypoint = path.waypoints[i]
 
             best_j = i + 1
@@ -233,15 +237,15 @@ class PathPlanner:
                         break
 
                 if collision:
-                    best_j = j-1
+                    best_j = j - 1
                     break
-                elif j == len(path.waypoints)-1:
-                    best_j = len(path.waypoints)-1
+                elif j == len(path.waypoints) - 1:
+                    best_j = len(path.waypoints) - 1
                     break
 
             # Snap best_j to the maximum value as a precaution
-            best_j = best_j if best_j <= (len(path.waypoints)-1) else (len(path.waypoints)-1)
-            
+            best_j = best_j if best_j <= (len(path.waypoints) - 1) else (len(path.waypoints) - 1)
+
             pruned_points.append(path.waypoints[best_j])
             i = best_j
 
@@ -252,5 +256,3 @@ class PathPlanner:
         if self.debug:
             self._display_path(map, pruned_path)
         return pruned_path
-            
-

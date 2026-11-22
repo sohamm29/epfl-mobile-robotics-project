@@ -6,9 +6,7 @@ import numpy as np
 # Type alias or structure representing the occupancy grid from MapGenerator
 type Grid = np.ndarray | None
 type Point = tuple[float, float]
-type Heading = (
-    float | None
-)  # (Degrees) 0 at north, ranging over (-180, 180]. None values indicate heading is not important
+type Heading = float | None  # (Degrees) 0 at north, ranging over (-180, 180]. None values indicate heading is not important
 
 
 @dataclass(frozen=True)
