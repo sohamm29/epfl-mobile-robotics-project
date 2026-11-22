@@ -60,8 +60,8 @@ class PathPlanner:
         ax.grid(which="minor", color="lightgray", linestyle="-", linewidth=0.75)
         ax.tick_params(which="minor", bottom=False, left=False)
         ax.plot(path_cols, path_rows, color="limegreen", linewidth=2, marker="o", label="Path")
-        ax.scatter(map.start_state[0][1], map.start_state[0][0], c="blue", s=80, label="Start", zorder=3)
-        ax.scatter(map.goal_state[0][1], map.goal_state[0][0], c="red", s=80, label="Goal", zorder=3)
+        ax.scatter(map.start_state.position[1], map.start_state.position[0], c="blue", s=80, label="Start", zorder=3)
+        ax.scatter(map.goal_state.position[1], map.goal_state.position[0], c="red", s=80, label="Goal", zorder=3)
 
         ax.set_title("Occupancy Grid w/ Path")
 
@@ -82,35 +82,37 @@ class PathPlanner:
         else:
             return abs(delta)
 
-    def _heuristic(self, a: State, b: State) -> int:
+    def _heuristic(self, a: State, b: State) -> float:
         """
         Simple heuristic for A* path planning algorithm, determining Octile distance to the goal
 
         Args:
-         - a (Point): Current position in grid
-         - b (Point): Goal position in grid
+         - a (State): Current state in grid
+         - b (State): Goal state in grid
         """
-        dx = abs(a[0][0] - b[0][0])
-        dy = abs(a[0][1] - b[0][1])
-        if a[1] and b[1]:
-            turning_cost = TURNING_WEIGHT * self._angle_diff(a[1], b[1])
+        dx = abs(a.position[0] - b.position[0])
+        dy = abs(a.position[1] - b.position[1])
+        if a.heading is not None and b.heading is not None:
+            turning_cost = TURNING_WEIGHT * self._angle_diff(a.heading, b.heading)
         else:
             turning_cost = 0.0
-        return (dx + dy) + (np.sqrt(2) - 2) * min(dx, dy) + turning_cost
+        return float((dx + dy) + (np.sqrt(2) - 2) * min(dx, dy) + turning_cost)
 
     def plan(self, map: Map) -> tuple[Path | None, set[Point], int]:
         """
         Run the A* search algorithm on the input Grid,
         start -> goal and return a Path object.
         """
-        S: State = map.start_state
-        G: State = map.goal_state
-        came_from = {}
-        g_costs = {S[0]: 0}
+        start_cell = (int(round(map.start_state.position[0])), int(round(map.start_state.position[1])))
+        goal_cell = (int(round(map.goal_state.position[0])), int(round(map.goal_state.position[1])))
+        S: State = State(position=start_cell, heading=map.start_state.heading)
+        G: State = State(position=goal_cell, heading=map.goal_state.heading)
+        came_from: dict[State, State] = {}
+        g_costs: dict[Point, float] = {S.position: 0.0}
         explored: set[Point] = set()
         operation_count = 0
 
-        open_set = [(self._heuristic(S, G), 0, S)]
+        open_set = [(self._heuristic(S, G), 0.0, operation_count, S)]
         current_state: State = S
 
         if map.grid is None:
@@ -118,52 +120,54 @@ class PathPlanner:
             return None, explored, operation_count
 
         while open_set:
-            current_f_cost, current_g_cost, current_state = heappop(open_set)
-            explored.add(current_state[0])
+            current_f_cost, current_g_cost, _, current_state = heappop(open_set)
+            explored.add(current_state.position)
 
-            if current_state[0] == G[0]:
+            if current_state.position == G.position:
                 break
 
-            neighbours = [  # Scan all surrounding positions, including diagonally
-                ((current_state[0][0] + 1, current_state[0][1]), 90),  # Right
-                ((current_state[0][0] - 1, current_state[0][1]), -90),  # Left
-                ((current_state[0][0], current_state[0][1] + 1), 180),  # Down
-                ((current_state[0][0], current_state[0][1] - 1), 0),  # Up
-                ((current_state[0][0] + 1, current_state[0][1] + 1), 135),  # Down-Right
-                ((current_state[0][0] - 1, current_state[0][1] + 1), -135),  # Down-Left
-                ((current_state[0][0] + 1, current_state[0][1] - 1), 45),  # Up-Right
-                ((current_state[0][0] - 1, current_state[0][1] - 1), -45),  # Up-Left
+            r, c = int(current_state.position[0]), int(current_state.position[1])
+            neighbours = [  # Scan all surrounding positions, including diagonally (0 deg = North/Up, 90 deg = East/Right)
+                State(position=(r + 1, c), heading=180),      # Down (South)
+                State(position=(r - 1, c), heading=0),        # Up (North)
+                State(position=(r, c + 1), heading=90),       # Right (East)
+                State(position=(r, c - 1), heading=-90),      # Left (West)
+                State(position=(r + 1, c + 1), heading=135),  # Down-Right (South-East)
+                State(position=(r - 1, c + 1), heading=45),   # Up-Right (North-East)
+                State(position=(r + 1, c - 1), heading=-135), # Down-Left (South-West)
+                State(position=(r - 1, c - 1), heading=-45),  # Up-Left (North-West)
             ]
 
             for neighbour in neighbours:
+                nr, nc = int(neighbour.position[0]), int(neighbour.position[1])
                 # Check the position is within bounds
-                if 0 <= neighbour[0][0] < map.dimensions[0] and 0 <= neighbour[0][1] < map.dimensions[1]:
+                if 0 <= nr < map.dimensions[0] and 0 <= nc < map.dimensions[1]:
                     # Check the position is not an obstacle
-                    if map.grid[neighbour[0][0]][neighbour[0][1]] != 1:
-                        if neighbour[1] and current_state[1]:
-                            turning_cost = TURNING_WEIGHT * self._angle_diff(neighbour[1], current_state[1])
+                    if map.grid[nr][nc] != 1:
+                        if neighbour.heading is not None and current_state.heading is not None:
+                            turning_cost = TURNING_WEIGHT * self._angle_diff(neighbour.heading, current_state.heading)
                         else:
                             turning_cost = 0.0
-                        tentative_g_cost = current_g_cost + 1 + map.grid[neighbour[0][0], neighbour[0][1]] + turning_cost
+                        tentative_g_cost = float(current_g_cost + 1 + map.grid[nr, nc] + turning_cost)
 
-                        if neighbour[0] not in g_costs or g_costs[neighbour[0]] > tentative_g_cost:
-                            g_costs[neighbour[0]] = tentative_g_cost
+                        if neighbour.position not in g_costs or g_costs[neighbour.position] > tentative_g_cost:
+                            g_costs[neighbour.position] = tentative_g_cost
                             came_from[neighbour] = current_state
 
                             operation_count += 1
 
                             f_cost = tentative_g_cost + self._heuristic(neighbour, G)
-                            heappush(open_set, (f_cost, tentative_g_cost, neighbour))
+                            heappush(open_set, (f_cost, tentative_g_cost, operation_count, neighbour))
         
-        if current_state[0] == G[0]:
+        if current_state.position == G.position:
             solution: list[Point] = []
-            while current_state[0] != S[0]:
-                solution.append(current_state[0])
+            while current_state.position != S.position:
+                solution.append(current_state.position)
                 current_state = came_from[current_state]
-            solution.append(S[0])
+            solution.append(S.position)
             solution.reverse()
 
-            ideal_path = Path(waypoints=solution, cost=g_costs[G[0]])
+            ideal_path = Path(waypoints=solution, cost=g_costs[G.position])
             if self.debug:
                 self._display_path(map, ideal_path, explored=explored)
             return ideal_path, explored, operation_count
@@ -218,13 +222,13 @@ class PathPlanner:
             waypoint = path.waypoints[i]
 
             best_j = i + 1
-            for j in range(i + 2, i + 3 + max_dist):
+            for j in range(i + 2, min(len(path.waypoints), i + 3 + max_dist)):
                 line = self._bresenham_line(waypoint, path.waypoints[j])
                 logger.debug(f"Checking index {i} to {j}: {line.waypoints}")
 
                 collision = False
                 for p in line.waypoints:
-                    if map.grid[p[0]][p[1]] > max_cost:
+                    if map.grid is not None and map.grid[p[0]][p[1]] > max_cost:
                         collision = True
                         break
 

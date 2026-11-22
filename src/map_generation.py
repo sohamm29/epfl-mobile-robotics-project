@@ -1,18 +1,20 @@
 from pathlib import Path
-from data_types import Map, Point
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from data_types import Map, Point, State
 from loguru import logger
 from matplotlib.patches import Patch
+from utils import get_aruco_tag
 
 SPACEBAR_KEY_VAL = 32
 PX_PER_CELL = 20
 OBSTACLE_DETECTION_NOISE_THRESHOLD = 50
 
+
 class MapGenerator:
-    def __init__(self, debug: bool = False):
+    def __init__(self, map_tag_ids: list[int], robot_tag_id: int, debug: bool = False):
         """
         Function called on class instantiation, i.e. with a = MapGenerator().
         Also handles the interaction with the camera, and image processing.
@@ -20,29 +22,46 @@ class MapGenerator:
         Args:
          - debug (bool): This value activates logging and debug
                          interface for deeper understanding and visualization.
+         - robot_tag_id (int): ArUco tag ID mounted on the Thymio robot.
+         - map_tag_ids (list[int]): ArUco tag ID's for map delimitation.
         """
         self._debug = debug
+        self._robot_tag_id = robot_tag_id
+        self._map_tag_ids = map_tag_ids
         self._map: Map = Map()
         self._transform_matrix: np.ndarray | None = None
+        self._warped_size: tuple[int, int] = (0, 0)
         self._dilation_mask: np.ndarray | None = None
         self._dilation_margin: int = 0
 
     def _locate_aruco_tags(self, image: np.ndarray) -> list[Point]:
         """
-        Within the image, locate the aruco tags to get orientation,
+        Within the image, locate the 4 corner aruco tags to get orientation,
         and spacing details of the map.
         """
-        aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_1000)
-        detector = cv2.aruco.ArucoDetector(aruco_dict, cv2.aruco.DetectorParameters())
+        detected_tags = get_aruco_tag(image=image, tag_ids=self._map_tag_ids)
 
-        # we place tags 0 -> 3 clockwise from top left
-        corners, ids, _ = detector.detectMarkers(image)
-        if ids is None or len(ids) < 4:
+        if not detected_tags:
+            logger.error(f"Unable to detect Map tags given= {self._map_tag_ids}")
             return []
 
-        tags = {int(i): c[0] for c, i in zip(corners, ids.flatten(), strict=False)}
-        # Inner map corner of tag i (0:TL, 1:TR, 2:BR, 3:BL) is corner (i + 2) % 4
-        return [tuple(tags[i][(i + 2) % 4].astype(int)) for i in range(4)]
+        if len(detected_tags) < 4:
+            logger.error(
+                f"Detected tags ({[elem.tid for elem in detected_tags]}) less than 4 = {len(detected_tags)}"
+            )
+            return []
+
+        tags = {tag.tid: tag for tag in detected_tags}
+        if not all(i in tags for i in range(4)):
+            return []
+
+        # Inner map corner of tag i (0:TL, 1:TR, 2:BR, 3:BL)
+        return [
+            tags[0].bottom_right_corner_pos,
+            tags[1].bottom_left_corner_pos,
+            tags[2].top_left_corner_pos,
+            tags[3].top_right_corner_pos,
+        ]
 
     def _preprocess_image(self, image: np.ndarray, aruco_tags_loc: list[Point]) -> np.ndarray:
         """
@@ -50,6 +69,7 @@ class MapGenerator:
         """
         rows, cols = self._map.dimensions
         out_w, out_h = cols * PX_PER_CELL, rows * PX_PER_CELL
+        self._warped_size = (out_w, out_h)
         src = np.array(aruco_tags_loc, dtype=np.float32)
         dst = np.array([[0, 0], [out_w, 0], [out_w, out_h], [0, out_h]], dtype=np.float32)
 
@@ -158,12 +178,21 @@ class MapGenerator:
 
     def _detect_start(self, image: np.ndarray) -> None:
         """
-        Detect position of Thymio Robot within the Map.
-        White in HSV: any Hue (0-179), low Saturation (0-55), high Value (200-255).
+        Detect position (and heading, if ArUco tag is present) of Thymio Robot within the Map.
+        Falls back to white HSV blob detection if the robot ArUco tag is not detected.
         """
-        pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
-        heading = None
-        self._map.start_state = (pos, heading)
+        robot_tags = get_aruco_tag(image=image, tag_ids=[self._robot_tag_id])
+        if robot_tags:
+            px_x, px_y = robot_tags[0].state.position
+            rows, cols = self._map.dimensions
+            row = int(np.clip(px_y // PX_PER_CELL, 0, rows - 1))
+            col = int(np.clip(px_x // PX_PER_CELL, 0, cols - 1))
+            self._map.start_state = State(position=(row, col), heading=robot_tags[0].state.heading)
+            return
+        else:
+            pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
+            self._map.start_state = State(position=pos, heading=None)
+            logger.error("No Robot Tag found. Resorting to White Blob Filtering")
 
     def _detect_goal(self, image: np.ndarray) -> None:
         """
@@ -171,8 +200,7 @@ class MapGenerator:
         Fire in HSV: red-orange Hue (0-15), high Saturation (160-255), Value (150-255).
         """
         pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
-        heading = None
-        self._map.goal_state = (pos, heading)
+        self._map.goal_state = State(position=pos, heading=None)
 
     def _post_process_grid(self) -> None:
         """
@@ -186,11 +214,49 @@ class MapGenerator:
         self._map.dimensions = self._map.grid.shape
 
         # Shift start, goal, and dilation mask by +1 to match padded coordinates
-        self._map.start_state = ((self._map.start_state[0][0] + 1, self._map.start_state[0][1] + 1), self._map.start_state[1])
-        self._map.goal_state = ((self._map.goal_state[0][0] + 1, self._map.goal_state[0][1] + 1), self._map.goal_state[1])
+        sr, sc = self._map.start_state.position
+        gr, gc = self._map.goal_state.position
+        self._map.start_state = State(
+            position=(sr + 1, sc + 1),
+            heading=self._map.start_state.heading,
+        )
+        self._map.goal_state = State(
+            position=(gr + 1, gc + 1),
+            heading=self._map.goal_state.heading,
+        )
 
         if self._dilation_mask is not None:
             self._dilation_mask = np.pad(self._dilation_mask, pad_width=1, mode="constant", constant_values=0)
+
+    def get_robot_state(
+        self,
+        image_path: str | Path | None = None,
+        frame: np.ndarray | None = None,
+    ) -> State | None:
+        """
+        Continuously locate the robot's ArUco tag from a new camera frame (or image_path)
+        and return its State in padded grid coordinates (row, col) and heading (degrees).
+        Returns None if the camera is covered or the tag is not visible.
+        """
+        if self._transform_matrix is None or self._warped_size == (0, 0):
+            logger.error("Map perspective transform is not initialized. Call generate() first.")
+            return None
+
+        raw_frame = frame if frame is not None else self._get_frame(image_path=image_path)
+        if raw_frame is None:
+            logger.error("Unable to obtain image or get frame from camera.")
+            return None
+
+        warped = cv2.warpPerspective(raw_frame, self._transform_matrix, self._warped_size)
+        robot_tags = get_aruco_tag(image=warped, tag_ids=[self._robot_tag_id])
+        if not robot_tags:
+            return None
+
+        px_x, px_y = robot_tags[0].state.position
+        # Convert warped pixel coordinates to padded grid coordinates (+1 for post-process padding)
+        row = (px_y / PX_PER_CELL) + 1.0
+        col = (px_x / PX_PER_CELL) + 1.0
+        return State(position=(row, col), heading=robot_tags[0].state.heading)
 
     def _get_frame(self, image_path: str | Path | None = None) -> np.ndarray | None:
         """
@@ -242,13 +308,19 @@ class MapGenerator:
         axes[2].grid(which="minor", color="lightgray", linestyle="-", linewidth=0.75)
         axes[2].tick_params(which="minor", bottom=False, left=False)
         axes[2].scatter(
-            self._map.start_state[0][1],
-            self._map.start_state[0][0],
+            self._map.start_state.position[1],
+            self._map.start_state.position[0],
             c="blue",
             s=80,
             label="Start",
         )
-        axes[2].scatter(self._map.goal_state[0][1], self._map.goal_state[0][0], c="red", s=80, label="Goal")
+        axes[2].scatter(
+            self._map.goal_state.position[1],
+            self._map.goal_state.position[0],
+            c="red",
+            s=80,
+            label="Goal",
+        )
         axes[2].set_title("3. Occupancy Grid")
 
         handles, labels = axes[2].get_legend_handles_labels()
@@ -289,6 +361,7 @@ class MapGenerator:
             return None
 
         aruco_tags_loc = self._locate_aruco_tags(image=frame)
+        logger.debug(aruco_tags_loc)
         if len(aruco_tags_loc) < 4:
             logger.error("Failed to detect all 4 ArUco markers.")
             return None
