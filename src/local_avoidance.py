@@ -16,7 +16,7 @@ class LocalAvoider:
         """
         Returns true if avoidance should be active, and false if no longer necessary
         """
-        raise NotImplementedError("TBD")
+        return False
 
     def avoid(self, current_state: State, data: SensorData) -> Command:
         """
