@@ -22,19 +22,19 @@ class PoseEstimator:
         """
         Returns True if detected that robot has been kidnapped (i.e. lifted off the ground.)
         """
-        raise NotImplementedError("TBD")
+        return False
 
     def move(self, left_speed: int, right_speed: int, dt: float) -> None:
         """
         Updated probability with motion rules updates.
         """
-        raise NotImplementedError("TBD")
+        return
 
     def sense(self, data: SensorData) -> None:
         """
         Update probability with sensed data.
         """
-        raise NotImplementedError("TBD")
+        return
 
     def get_estimate(self) -> State:
         """
