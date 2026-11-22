@@ -9,4 +9,4 @@
 Parameters to consider playing around with to optimize performance:
 - ```TURNING_WEIGHT```: Turning penalty relative to the penalty of the cells close to an obstacle, so that the robot chooses well how closely it passes by obstacles
 - ```max_dist```: The maximum number of cells ahead the LOS_pruning can skip, to avoid attempts to aggressively turn the full path finding into one straight line
-- ```max_cost```: The maximum acceptable cost for the Bresenham line to cut through and still be considered a viable path, depends on the magnitude of the cell diffusion penalties 
+- ```max_cost```: The maximum acceptable cost for the Bresenham line to cut through and still be considered a viable path, depends on the magnitude of the cell diffusion penalties

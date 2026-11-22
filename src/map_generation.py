@@ -11,6 +11,7 @@ from utils import get_aruco_tag
 SPACEBAR_KEY_VAL = 32
 PX_PER_CELL = 20
 OBSTACLE_DETECTION_NOISE_THRESHOLD = 50
+DILATION_DECAY_RATE = 0.4
 
 
 class MapGenerator:
@@ -155,20 +156,34 @@ class MapGenerator:
 
         # dilation, add a 1 near any cell that has a one
         self._dilation_margin = dilation_margin
-        dilated_grid = (
-            cv2.dilate(raw_grid, np.ones((3, 3), np.uint8), iterations=dilation_margin) if dilation_margin > 0 else raw_grid
-        )
-        dilated_grid = dilated_grid.astype(float)
+        dilated_grid = raw_grid.astype(float)
 
-        # get independent dilation mask, to display seperately on map.
-        self._dilation_mask = (dilated_grid - raw_grid).astype(float)
-        dilated_grid[self._dilation_mask > 0] = 0.5
+        if dilation_margin > 0:
+            # distanceTransform measures distance to the nearest 0-pixel,
+            # so invert raw_grid so obstacles = 0 and free space = 1
+            free_space = (raw_grid == 0).astype(np.uint8)
+            dist = cv2.distanceTransform(free_space, cv2.DIST_L2, 5)
+
+            # Mask of cells strictly inside the dilation margin (excluding original obstacles)
+            in_margin = (dist > 0) & (dist <= dilation_margin)
+
+            # Exponential decay: tune decay_rate to control how fast the cost drops off
+            decay_rate = DILATION_DECAY_RATE
+            self._dilation_mask = np.zeros_like(dilated_grid)
+            self._dilation_mask[in_margin] = np.exp(-decay_rate * dist[in_margin])
+
+            # Apply the exponential gradient to the grid
+            dilated_grid[in_margin] = self._dilation_mask[in_margin]
+        else:
+            self._dilation_mask = np.zeros_like(dilated_grid)
+
         self._map.grid = dilated_grid
 
         if self._debug and dilation_margin > 0:
             logger.info(
                 f"Obstacle dilation active: {dilation_margin} cell(s) "
                 f"(+{int(np.sum(self._dilation_mask))} dilated grid cells)."
+                f"Decay Factor = {DILATION_DECAY_RATE}"
             )
 
     def _detect_start(self, image: np.ndarray) -> None:
@@ -221,6 +236,7 @@ class MapGenerator:
         )
 
         if self._dilation_mask is not None:
+            # update dilation to match padding added to map
             self._dilation_mask = np.pad(self._dilation_mask, pad_width=1, mode="constant", constant_values=0)
 
     def get_robot_state(
@@ -291,9 +307,6 @@ class MapGenerator:
 
         # Visual grid: 0 = free (white), 0.45 = dilation (gray), 1 = obstacle (black)
         display_grid = self._map.grid.astype(float)
-        if self._dilation_mask is not None and self._dilation_margin > 0:
-            display_grid[self._dilation_mask > 0] = 0.45
-
         axes[2].imshow(display_grid, cmap="Greys", vmin=0.0, vmax=1.0, origin="upper")
         rows, cols = self._map.dimensions
         axes[2].set_xticks(np.arange(cols))
