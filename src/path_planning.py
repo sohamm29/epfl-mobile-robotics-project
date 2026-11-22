@@ -6,8 +6,10 @@ import numpy as np
 from data_types import Map, Path, Point, State
 from loguru import logger
 from matplotlib.patches import Patch
+from utils import angle_diff
 
 TURNING_WEIGHT = 0.5 / 180.0
+MOVEMENT_WEIGHT = 1.0
 
 
 class PathPlanner:
@@ -72,17 +74,6 @@ class PathPlanner:
         plt.tight_layout()
         plt.show()
 
-    def _angle_diff(self, a: float, b: float) -> float:
-        """
-        Find the absolute, minimum difference between two angles (degrees),
-        wrapping to stay in the range [-180, 180]
-        """
-        delta = a - b
-        if abs(delta) > 180.0:
-            return min(abs(delta % 180.0), abs(-delta % 180.0))
-        else:
-            return abs(delta)
-
     def _heuristic(self, a: State, b: State) -> float:
         """
         Simple heuristic for A* path planning algorithm, determining Octile distance to the goal
@@ -94,7 +85,7 @@ class PathPlanner:
         dx = abs(a.position[0] - b.position[0])
         dy = abs(a.position[1] - b.position[1])
         if a.heading is not None and b.heading is not None:
-            turning_cost = TURNING_WEIGHT * self._angle_diff(a.heading, b.heading)
+            turning_cost = TURNING_WEIGHT * abs(angle_diff(a.heading, b.heading))
         else:
             turning_cost = 0.0
         return float((dx + dy) + (np.sqrt(2) - 2) * min(dx, dy) + turning_cost)
@@ -147,10 +138,10 @@ class PathPlanner:
                     # Check the position is not an obstacle
                     if map.grid[nr][nc] != 1:
                         if neighbour.heading is not None and current_state.heading is not None:
-                            turning_cost = TURNING_WEIGHT * self._angle_diff(neighbour.heading, current_state.heading)
+                            turning_cost = TURNING_WEIGHT * abs(angle_diff(neighbour.heading, current_state.heading))
                         else:
                             turning_cost = 0.0
-                        tentative_g_cost = float(current_g_cost + 1 + map.grid[nr, nc] + turning_cost)
+                        tentative_g_cost = float(current_g_cost + MOVEMENT_WEIGHT + map.grid[nr, nc] + turning_cost)
 
                         if neighbour.position not in g_costs or g_costs[neighbour.position] > tentative_g_cost:
                             g_costs[neighbour.position] = tentative_g_cost

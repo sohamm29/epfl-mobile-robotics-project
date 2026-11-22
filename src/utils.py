@@ -49,3 +49,19 @@ def get_aruco_tag(image: np.ndarray, tag_ids: list[int]) -> list[ArucoTag] | Non
         )
 
     return output
+
+
+def angle_diff(a: float, b: float) -> float:
+    """
+    Find the angle from a to b (degrees), where clockwise is positive.
+    Wrapped to stay in the range (-180, 180]
+    """
+    delta = b - a
+    if delta > 180.0:
+        return delta - 360
+    elif delta < -180:
+        return delta + 360
+    elif delta == -180:
+        return 180
+    else:
+        return delta
