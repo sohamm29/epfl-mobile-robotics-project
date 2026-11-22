@@ -11,7 +11,8 @@ class PIDController:
         """
         Instantiate Path Follower with dbeug flag.
         """
-        self._debug = debug
+        self._debug: bool = debug
+        self._current_waypoint_idx: int = 0
 
     def setup(
         self,
@@ -22,7 +23,7 @@ class PIDController:
         """
         self._path = path
 
-    def reset_gains(self) -> None:
+    def reset(self) -> None:
         """
         Restore param to new values and defaults, useful in cases where Path Following has to be paused.
         """

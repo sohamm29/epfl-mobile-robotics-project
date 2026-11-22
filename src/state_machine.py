@@ -2,8 +2,8 @@ from data_types import Command, Map, Mode, SensorData, State
 from local_avoidance import LocalAvoider
 from loguru import logger
 from map_generation import MapGenerator
-from path_following import PIDController
 from path_planning import PathPlanner
+from pid_controller import PIDController
 from pose_estimation import PoseEstimator
 
 COMMAND_STOP = Command(motor_left_speed=0, motor_right_speed=0, leds_top=(0, 0, 0))
@@ -67,7 +67,7 @@ class StateMachine:
                 self._mode = Mode.LOCAL_AVOIDANCE
             elif self._mode == Mode.LOCAL_AVOIDANCE:
                 self._mode = Mode.PATH_FOLLOWING
-                self._path_follower.reset_gains()
+                self._path_follower.reset()
 
         match self._mode:
             case Mode.KIDNAPPED:
