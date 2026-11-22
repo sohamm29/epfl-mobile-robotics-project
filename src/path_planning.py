@@ -7,7 +7,7 @@ from data_types import Map, Path, Point, State
 from loguru import logger
 from matplotlib.patches import Patch
 
-TURNING_WEIGHT = 1.0 / 180.0
+TURNING_WEIGHT = 0.5 / 180.0
 
 
 class PathPlanner:
@@ -225,7 +225,7 @@ class PathPlanner:
         while i < len(path.waypoints) - 1:
             waypoint = path.waypoints[i]
 
-            best_j = i + 1
+            best_j = i + 2 + max_dist
             for j in range(i + 2, min(len(path.waypoints), i + 3 + max_dist)):
                 line = self._bresenham_line(waypoint, path.waypoints[j])
                 logger.debug(f"Checking index {i} to {j}: {line.waypoints}")
