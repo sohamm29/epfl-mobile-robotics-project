@@ -1,0 +1,7 @@
+trial,left_speed,right_speed,duration_s,heading_change_deg,motor_command_unit,notes
+1, -100, 100, 2, 80
+2, -200, 200, 2, 160
+3, -300, 300, 2, 232
+4, -400, 400, 2, 297
+5, -500, 500, 2, 327
+6, 0, 0, 2, 0

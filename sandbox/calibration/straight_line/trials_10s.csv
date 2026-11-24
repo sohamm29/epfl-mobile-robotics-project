@@ -1,0 +1,6 @@
+trial,left_speed,right_speed,duration_s,distance_m,lateral_deviation_m,motor_command_unit,notes
+1,50,50,10,0.186,,tdm motor target units,
+2,100,100,10,0.327,,tdm motor target units,
+3,150,150,10,0.482,,tdm motor target units,
+4,200,200,10,0.632,,tdm motor target units,
+5,0,0,10,0.0,,tdm motor target units,assumed zero command gives zero displacement
