@@ -51,7 +51,6 @@ class StateMachine:
         """
         Defines what instructions to send to robot.
         """
-        logger.info(f"(Pre-step) MODE={self._mode} SENSOR_DATA={sensor_data} CURRENT_STATE={self._current_state}")
         if self._mode in (Mode.PATH_FOLLOWING, Mode.LOCAL_AVOIDANCE):
             left_speed, right_speed = sensor_data.motor_speeds[0], sensor_data.motor_speeds[1]
             self._pose_estimator.move(left_speed, right_speed, sensor_data.dt)

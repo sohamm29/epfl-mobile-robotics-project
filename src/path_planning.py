@@ -8,7 +8,9 @@ from loguru import logger
 from matplotlib.patches import Patch
 from utils import angle_diff
 
-TURNING_WEIGHT = 0.5 / 180.0
+from map_generation import OBSTACLE_WEIGHT
+
+TURNING_WEIGHT = 5.0 / 180.0
 MOVEMENT_WEIGHT = 1.0
 
 
@@ -34,7 +36,7 @@ class PathPlanner:
         fig, ax = plt.subplots(figsize=(5, 5))
 
         display_grid = map.grid.astype(float)
-        ax.imshow(display_grid, cmap="Greys", vmin=0.0, vmax=1.0, origin="upper")
+        ax.imshow(display_grid, cmap="Greys", vmin=0.0, vmax=np.max(display_grid), origin="upper")
 
         path_rows = [row for row, _ in path.waypoints]
         path_cols = [col for _, col in path.waypoints]
@@ -90,10 +92,11 @@ class PathPlanner:
             turning_cost = 0.0
         return float((dx + dy) + (np.sqrt(2) - 2) * min(dx, dy) + turning_cost)
 
-    def plan(self, map: Map) -> tuple[Path | None, set[Point], int]:
+    def plan(self, map: Map, prune: bool = True, lookahead_distance: int = 5, max_cost: float = 0.0) -> tuple[Path | None, set[Point], int]:
         """
         Run the A* search algorithm on the input Grid,
         start -> goal and return a Path object.
+        If prune is True it will post-process optimize the path. 
         """
         start_cell = (int(round(map.start_state.position[0])), int(round(map.start_state.position[1])))
         goal_cell = (int(round(map.goal_state.position[0])), int(round(map.goal_state.position[1])))
@@ -136,7 +139,7 @@ class PathPlanner:
                 # Check the position is within bounds
                 if 0 <= nr < map.dimensions[0] and 0 <= nc < map.dimensions[1]:
                     # Check the position is not an obstacle
-                    if map.grid[nr][nc] != 1:
+                    if map.grid[nr][nc] != OBSTACLE_WEIGHT:
                         if neighbour.heading is not None and current_state.heading is not None:
                             turning_cost = TURNING_WEIGHT * abs(angle_diff(neighbour.heading, current_state.heading))
                         else:
@@ -163,6 +166,10 @@ class PathPlanner:
             ideal_path = Path(waypoints=solution, cost=g_costs[G.position])
             if self.debug:
                 self._display_path(map, ideal_path, explored=explored)
+
+            if prune:
+                ideal_path = self._line_of_sight_pruning(map, ideal_path, lookahead_distance, max_cost)
+            
             return ideal_path, explored, operation_count
         else:
             logger.info("Path planning could not find a solution.")
@@ -201,26 +208,25 @@ class PathPlanner:
 
         return Path(waypoints=line)
 
-    def LOS_pruning(self, map: Map, path: Path, max_dist: int = 5, max_cost: float = 0) -> Path:
+    def _line_of_sight_pruning(self, map: Map, path: Path, lookahead_distance: int, max_cost: float) -> Path:
         """
         Line-of-sight pruning determines what points in the Path can be skipped entirlely for a smaller Path -
         for each point we see what the farthest point that we can see without any obstacles is,
         and skip any points in between.
+
+        lookahead_distance: looks "n" waypoints into the future.
+        max_cost: minimum defined threshold to evaluate terrain as candidate
         """
         pruned_points: list[Point] = [path.waypoints[0]]
-
-        logger.debug(f"Path waypoints: {path.waypoints}")
 
         i = 0
         start_time = perf_counter()
         while i < len(path.waypoints) - 1:
             waypoint = path.waypoints[i]
 
-            best_j = i + 2 + max_dist
-            for j in range(i + 2, min(len(path.waypoints), i + 3 + max_dist)):
+            best_j = i + 2 + lookahead_distance
+            for j in range(i + 2, min(len(path.waypoints), i + 3 + lookahead_distance)):
                 line = self._bresenham_line(waypoint, path.waypoints[j])
-                logger.debug(f"Checking index {i} to {j}: {line.waypoints}")
-
                 collision = False
                 for p in line.waypoints:
                     if map.grid is not None and map.grid[p[0]][p[1]] > max_cost:
@@ -244,6 +250,16 @@ class PathPlanner:
         pruned_path = Path(waypoints=pruned_points, cost=path.cost)
         logger.info(f"Original Path Size = {len(path.waypoints)} Pruned Path Size = {len(pruned_path.waypoints)}")
         logger.info(f"Pruning Duration = {(end_time - start_time):.4f}s")
+        logger.debug(f"Prunned Path= {pruned_path}")
         if self.debug:
             self._display_path(map, pruned_path)
-        return pruned_path
+        return self._convert_path_from_cells_to_points(pruned_path, map)
+
+
+    def _convert_path_from_cells_to_points(self, path: Path, grid_map: Map) -> Path:
+        """
+        Path is currently operated as grid cell positions; converts it to absolute (x, y) coordinates.
+        """
+        res = grid_map.cell_resolution
+        path.waypoints = [((x + 0.5) * res, (y + 0.5) * res) for x, y in path.waypoints]
+        return path
