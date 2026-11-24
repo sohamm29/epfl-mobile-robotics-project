@@ -4,7 +4,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 DATA_FILE = Path(__file__).with_name("trials.csv")
 PLOT_FILE = Path(__file__).with_name("rotation_fit.png")
 
@@ -53,36 +52,20 @@ def load_trials(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 def main() -> None:
     command_differences, angular_velocities = load_trials(DATA_FILE)
-    coefficient = np.dot(command_differences, angular_velocities) / np.dot(
-        command_differences, command_differences
-    )
+    coefficient = np.dot(command_differences, angular_velocities) / np.dot(command_differences, command_differences)
     predicted = coefficient * command_differences
     residual_sum_squares = np.sum((angular_velocities - predicted) ** 2)
-    total_sum_squares = np.sum(
-        (angular_velocities - np.mean(angular_velocities)) ** 2
-    )
-    r_squared = (
-        1 - residual_sum_squares / total_sum_squares
-        if total_sum_squares > 0
-        else float("nan")
-    )
+    total_sum_squares = np.sum((angular_velocities - np.mean(angular_velocities)) ** 2)
+    r_squared = 1 - residual_sum_squares / total_sum_squares if total_sum_squares > 0 else float("nan")
 
     print(f"Trials: {len(angular_velocities)}")
-    print(
-        "Model: omega_rad_s = "
-        f"{coefficient:.6g} * (right_target - left_target)"
-    )
+    print("Model: omega_rad_s = " f"{coefficient:.6g} * (right_target - left_target)")
     print(f"Coefficient: {coefficient:.6g} rad/s per target-difference unit")
-    print(
-        "Coefficient: "
-        f"{np.rad2deg(coefficient):.6g} deg/s per target-difference unit"
-    )
+    print("Coefficient: " f"{np.rad2deg(coefficient):.6g} deg/s per target-difference unit")
     print(f"R-squared: {r_squared:.4f}")
     print("Use this model only over the range of motor commands measured.")
 
-    command_range = np.linspace(
-        np.min(command_differences), np.max(command_differences), 100
-    )
+    command_range = np.linspace(np.min(command_differences), np.max(command_differences), 100)
     plt.scatter(command_differences, angular_velocities, label="Measured trials")
     plt.plot(
         command_range,
