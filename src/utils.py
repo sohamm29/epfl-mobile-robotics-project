@@ -50,6 +50,16 @@ def get_aruco_tag(image: np.ndarray, tag_ids: list[int]) -> list[ArucoTag] | Non
 
     return output
 
+def angle_clamp(a: float) -> float:
+    """
+    Given an angle a, make sure that it is properly formatted to the angle range we expect
+    """
+    if a > 180.0:
+        return (a % 360.0) - 360.0
+    elif a <= -180:
+        return (a % -360.0) + 360.0
+    else:
+        return a
 
 def angle_diff(a: float, b: float) -> float:
     """
@@ -57,11 +67,4 @@ def angle_diff(a: float, b: float) -> float:
     Wrapped to stay in the range (-180, 180]
     """
     delta = b - a
-    if delta > 180.0:
-        return delta - 360
-    elif delta < -180:
-        return delta + 360
-    elif delta == -180:
-        return 180
-    else:
-        return delta
+    return angle_clamp(delta)

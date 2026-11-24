@@ -1,0 +1,4 @@
+# Values for wheel-based pose estimation
+calibration:
+  v_coef: 0.0293 # cm/s/unit
+  w_coef: 0.1781 # deg/s/unit
