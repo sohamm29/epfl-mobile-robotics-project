@@ -9,13 +9,14 @@ class PIDController:
     PID Controller used to follow the path.
     """
 
-    def __init__(self, lookahead_dist: int = 3, debug: bool = False) -> None:
+    def __init__(self, lookahead_dist: int = 3, heading_threshold: int = 2, debug: bool = False) -> None:
         """
         Instantiate Path Follower with dbeug flag.
         """
         self._debug: bool = debug
         self._lookahead_dist = lookahead_dist
         self._tgt_waypoint_idx: int = 0
+        self._heading_threshold: int = heading_threshold
 
     def setup(
         self,
@@ -43,9 +44,14 @@ class PIDController:
             180.0 / np.pi
         )
 
-        delta_pos = np.sqrt((target_pos[0] - current_state.position[0]) ** 2 - (target_pos[1] - current_state.position[1]) ** 2)
-        delta_heading = angle_diff(current_state.heading, target_heading)
+        logger.debug(f"Current State={current_state} Target Pos={target_pos}, Target Heading={target_heading}")
 
+        delta_pos = np.sqrt((target_pos[0] - current_state.position[0]) ** 2 + (target_pos[1] - current_state.position[1]) ** 2)
+        delta_heading = angle_diff(current_state.heading, target_heading)
+        if np.abs(delta_heading) < self._heading_threshold:
+            delta_heading = 0
+
+        logger.debug(f"Delta Pos={delta_pos} Delta Heading={delta_heading}")
         return delta_pos, delta_heading
 
     def next(self, current_state: State, dt: float) -> tuple[Command, bool] | None:
@@ -62,10 +68,10 @@ class PIDController:
 
         delta_pos, delta_heading = self._state_delta(current_state=current_state)
 
-        if delta_pos <= self._lookahead_dist and self._tgt_waypoint_idx < len(self._path) - 1:
+        if delta_pos <= self._lookahead_dist and self._tgt_waypoint_idx < len(self._path.waypoints) - 1:
             self._tgt_waypoint_idx += 1
             return self.next(current_state=current_state, dt=dt)
-        elif delta_pos < 1 and self._tgt_waypoint_idx == len(self.path) - 1:
+        elif delta_pos < 1 and self._tgt_waypoint_idx == len(self._path.waypoints) - 1:
             return Command(), True
 
         if abs(delta_heading) > 5:
@@ -73,4 +79,4 @@ class PIDController:
             d = 1 if delta_heading >= 0 else -1
             return Command(motor_left_speed=d * turn, motor_right_speed=-d * turn), False
         else:
-            return Command(motor_left_speed=base_speed, motor_right_speed=base_speed)
+            return Command(motor_left_speed=base_speed, motor_right_speed=base_speed), False

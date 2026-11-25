@@ -78,6 +78,7 @@ class Map:
 
     grid: Grid = None
     dimensions: tuple[int, int] = (0, 0)
+    cell_resolution: int = 0
     start_state: State = State(position=(0, 0), heading=0)
     goal_state: State = State(position=(0, 0), heading=None)
 

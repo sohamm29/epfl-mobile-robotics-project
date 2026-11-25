@@ -12,6 +12,7 @@ SPACEBAR_KEY_VAL = 32
 PX_PER_CELL = 20
 OBSTACLE_DETECTION_NOISE_THRESHOLD = 50
 DILATION_DECAY_RATE = 0.4
+OBSTACLE_WEIGHT = 10
 
 
 class MapGenerator:
@@ -87,6 +88,7 @@ class MapGenerator:
         """
         cols = int(map_width // cell_resolution)
         rows = int(map_height // cell_resolution)
+        self._map.cell_resolution = cell_resolution
         self._map.dimensions = (rows, cols)
         self._map.grid = np.zeros(self._map.dimensions, dtype=float)
 
@@ -156,7 +158,7 @@ class MapGenerator:
 
         # dilation, add a 1 near any cell that has a one
         self._dilation_margin = dilation_margin
-        dilated_grid = raw_grid.astype(float)
+        dilated_grid = raw_grid.astype(float) * OBSTACLE_WEIGHT
 
         if dilation_margin > 0:
             # distanceTransform measures distance to the nearest 0-pixel,
@@ -170,7 +172,7 @@ class MapGenerator:
             # Exponential decay: tune decay_rate to control how fast the cost drops off
             decay_rate = DILATION_DECAY_RATE
             self._dilation_mask = np.zeros_like(dilated_grid)
-            self._dilation_mask[in_margin] = np.exp(-decay_rate * dist[in_margin])
+            self._dilation_mask[in_margin] = OBSTACLE_WEIGHT * np.exp(-decay_rate * dist[in_margin])
 
             # Apply the exponential gradient to the grid
             dilated_grid[in_margin] = self._dilation_mask[in_margin]
@@ -201,7 +203,7 @@ class MapGenerator:
             return
         else:
             pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
-            self._map.start_state = State(position=pos, heading=None)
+            self._map.start_state = State(position=pos, heading=0)
             logger.error("No Robot Tag found. Resorting to White Blob Filtering")
 
     def _detect_goal(self, image: np.ndarray) -> None:
@@ -220,7 +222,7 @@ class MapGenerator:
             return
 
         # Pad 1 cell on all 4 sides with cost 1
-        self._map.grid = np.pad(self._map.grid, pad_width=1, mode="constant", constant_values=1)
+        self._map.grid = np.pad(self._map.grid, pad_width=1, mode="constant", constant_values=OBSTACLE_WEIGHT)
         self._map.dimensions = self._map.grid.shape
 
         # Shift start, goal, and dilation mask by +1 to match padded coordinates
@@ -307,7 +309,7 @@ class MapGenerator:
 
         # Visual grid: 0 = free (white), 0.45 = dilation (gray), 1 = obstacle (black)
         display_grid = self._map.grid.astype(float)
-        axes[2].imshow(display_grid, cmap="Greys", vmin=0.0, vmax=1.0, origin="upper")
+        axes[2].imshow(display_grid, cmap="Greys", vmin=0.0, vmax=np.max(display_grid), origin="upper")
         rows, cols = self._map.dimensions
         axes[2].set_xticks(np.arange(cols))
         axes[2].set_yticks(np.arange(rows))

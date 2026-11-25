@@ -2,7 +2,7 @@ from data_types import SensorData, State, Point
 import yaml
 from utils import angle_clamp
 import numpy as np
-
+from loguru import logger
 
 class PoseEstimator:
     """
@@ -13,11 +13,11 @@ class PoseEstimator:
         """
         Instantiate class for Pose Estimation
         """
-        self._debug = debug
-        self._state = State(position=[x_pos, y_pos], heading=heading)
+        self._debug: bool = debug
+        self._state: State = State(position=(x_pos, y_pos), heading=heading)
 
         with open("config.yaml") as f:
-            self._config = yaml.safe_load(f)
+            self._config: dict = yaml.safe_load(f)
 
     def _display(self) -> None:
         """
@@ -58,7 +58,8 @@ class PoseEstimator:
         new_x = self._state.position[0] + v_est * dt * np.cos(mid_heading)
         new_y = self._state.position[1] + v_est * dt * np.sin(mid_heading)
 
-        self._state = State(position=[new_x, new_y], heading=new_heading)
+        self._state = State(position=(new_x, new_y), heading=new_heading)
+        logger.debug(f"Position={self._state}")
 
         return
 
@@ -73,4 +74,4 @@ class PoseEstimator:
         Returns an estimate of the state of where the Robot is.
         If debug flag is true, displays the Probability distribution Grid
         """
-        raise self._state
+        return self._state
