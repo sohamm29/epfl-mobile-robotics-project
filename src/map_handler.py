@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,10 +13,10 @@ DILATION_DECAY_RATE = 0.4
 OBSTACLE_WEIGHT = 10
 
 
-class MapGenerator:
+class MapHandler:
     def __init__(self, map_tag_ids: list[int], robot_tag_id: int, debug: bool = False):
         """
-        Function called on class instantiation, i.e. with a = MapGenerator().
+        Function called on class instantiation, i.e. with a = MapHandler().
         Also handles the interaction with the camera, and image processing.
 
         Args:
@@ -28,8 +26,8 @@ class MapGenerator:
          - map_tag_ids (list[int]): ArUco tag ID's for map delimitation.
         """
         self._debug = debug
-        self._robot_tag_id = robot_tag_id
         self._map_tag_ids = map_tag_ids
+        self._robot_tag_id = robot_tag_id
         self._map: Map = Map()
         self._transform_matrix: np.ndarray | None = None
         self._warped_size: tuple[int, int] = (0, 0)
@@ -188,32 +186,6 @@ class MapGenerator:
                 f"Decay Factor = {DILATION_DECAY_RATE}"
             )
 
-    def _detect_start(self, image: np.ndarray) -> None:
-        """
-        Detect position (and heading, if ArUco tag is present) of Thymio Robot within the Map.
-        Falls back to white HSV blob detection if the robot ArUco tag is not detected.
-        """
-        robot_tags = get_aruco_tag(image=image, tag_ids=[self._robot_tag_id])
-        if robot_tags:
-            px_x, px_y = robot_tags[0].state.position
-            rows, cols = self._map.dimensions
-            row = int(np.clip(px_y // PX_PER_CELL, 0, rows - 1))
-            col = int(np.clip(px_x // PX_PER_CELL, 0, cols - 1))
-            self._map.start_state = State(position=(row, col), heading=robot_tags[0].state.heading)
-            return
-        else:
-            pos = self._find_blob_center(image, (0, 0, 200), (179, 55, 255))
-            self._map.start_state = State(position=pos, heading=0)
-            logger.error("No Robot Tag found. Resorting to White Blob Filtering")
-
-    def _detect_goal(self, image: np.ndarray) -> None:
-        """
-        Detect goal (fire) position within Map.
-        Fire in HSV: red-orange Hue (0-15), high Saturation (160-255), Value (150-255).
-        """
-        pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
-        self._map.goal_state = State(position=pos, heading=None)
-
     def _post_process_grid(self) -> None:
         """
         Add a boundary around Grid and update dimensions to match this change.
@@ -228,66 +200,10 @@ class MapGenerator:
         # Shift start, goal, and dilation mask by +1 to match padded coordinates
         sr, sc = self._map.start_state.position
         gr, gc = self._map.goal_state.position
-        self._map.start_state = State(
-            position=(sr + 1, sc + 1),
-            heading=self._map.start_state.heading,
-        )
-        self._map.goal_state = State(
-            position=(gr + 1, gc + 1),
-            heading=self._map.goal_state.heading,
-        )
 
         if self._dilation_mask is not None:
             # update dilation to match padding added to map
             self._dilation_mask = np.pad(self._dilation_mask, pad_width=1, mode="constant", constant_values=0)
-
-    def get_robot_state(
-        self,
-        image_path: str | Path | None = None,
-        frame: np.ndarray | None = None,
-    ) -> State | None:
-        """
-        Continuously locate the robot's ArUco tag from a new camera frame (or image_path)
-        and return its State in padded grid coordinates (row, col) and heading (degrees).
-        Returns None if the camera is covered or the tag is not visible.
-        """
-        if self._transform_matrix is None or self._warped_size == (0, 0):
-            logger.error("Map perspective transform is not initialized. Call generate() first.")
-            return None
-
-        raw_frame = frame if frame is not None else self._get_frame(image_path=image_path)
-        if raw_frame is None:
-            logger.error("Unable to obtain image or get frame from camera.")
-            return None
-
-        warped = cv2.warpPerspective(raw_frame, self._transform_matrix, self._warped_size)
-        robot_tags = get_aruco_tag(image=warped, tag_ids=[self._robot_tag_id])
-        if not robot_tags:
-            return None
-
-        px_x, px_y = robot_tags[0].state.position
-        # Convert warped pixel coordinates to padded grid coordinates (+1 for post-process padding)
-        row = (px_y / PX_PER_CELL) + 1.0
-        col = (px_x / PX_PER_CELL) + 1.0
-        return State(position=(row, col), heading=robot_tags[0].state.heading)
-
-    def _get_frame(self, image_path: str | Path | None = None) -> np.ndarray | None:
-        """
-        Load frame from disk if an image path is provided, otherwise capture from camera.
-        """
-        if image_path is not None:
-            frame = cv2.imread(str(image_path))
-            if frame is None:
-                logger.error(f"Failed to load image from path: {image_path}")
-            return frame
-
-        cam = cv2.VideoCapture(0)
-        check, frame = cam.read()
-        cam.release()
-        if not check:
-            logger.error("Failed to get Camera Frame.")
-            return None
-        return frame
 
     def _display_map(self, raw_image: np.ndarray, warped_image: np.ndarray) -> None:
         """
@@ -348,13 +264,63 @@ class MapGenerator:
         plt.tight_layout()
         plt.show()
 
+    def _detect_fire(self, image: np.ndarray) -> None:
+        """
+        Detect fire position within Map.
+        Fire in HSV: red-orange Hue (0-15), high Saturation (160-255), Value (150-255).
+        """
+        pos = self._find_blob_center(image, (0, 160, 150), (15, 255, 255))
+        self._map.goal_state = State(position=pos, heading=None)
+
+    def _detect_start(self, robot_tag_id: int, frame: np.ndarray) -> None:
+        """
+        Detect robot start position within Map.
+        Falls back to white blob detection, calls public get_robot_state() during generate().
+        """
+        robot_state = self.get_robot_state(robot_tag_id=robot_tag_id, frame=frame)
+        if not robot_state:
+            logger.error("Unable to detect Roobt State.")
+            return
+        self._map.start_state = robot_state
+
+    def get_robot_state(
+        self,
+        robot_tag_id: int,
+        frame: np.ndarray,
+    ) -> State | None:
+        """
+        Continuously locate the robot's ArUco tag from a new camera frame (or image_path)
+        and return its State in padded grid coordinates (row, col) and heading (degrees).
+        Returns None if the camera is covered or the tag is not visible.
+        """
+        if self._transform_matrix is None or self._warped_size == (0, 0):
+            logger.error("Map perspective transform is not initialized. Call generate() first.")
+            return None
+
+        warped = cv2.warpPerspective(frame, self._transform_matrix, self._warped_size)
+        robot_tags = get_aruco_tag(image=warped, tag_ids=[robot_tag_id])
+
+        if not robot_tags:
+            pos = self._find_blob_center(frame, (0, 0, 200), (179, 55, 255))
+            logger.warning("No Robot Tag found. Resorting to White Blob Filtering")
+            return State(position=pos, heading=None)
+
+        px_x, px_y = robot_tags[0].state.position
+        rows, cols = self._map.dimensions
+        row = int(np.clip(px_y // PX_PER_CELL, 0, rows - 1))
+        col = int(np.clip(px_x // PX_PER_CELL, 0, cols - 1))
+        # Convert warped pixel coordinates to padded grid coordinates (+1 for post-process padding)
+        row = (px_y / PX_PER_CELL) + 1.0
+        col = (px_x / PX_PER_CELL) + 1.0
+        return State(position=(row, col), heading=robot_tags[0].state.heading)
+
     def generate(
         self,
         cell_resolution: int,
         map_width: float,
         map_height: float,
+        frame: np.ndarray,
         dilation_margin: int = 0,
-        image_path: str | Path | None = None,
     ) -> Map | None:
         """
         Function to display map after generation.
@@ -364,17 +330,18 @@ class MapGenerator:
         - map_width (float): Physical map width (in cm)
         - map_height (float): Physical map height (in cm)
         - dilation_margin (int): Obstacle dilation margin (in number of grid cells)
-        - image_path (str | Path | None): Optional path to an image file for offline testing
+        - frame (np.ndarray): The image of the map from which we want to generate the map.
         """
-        frame = self._get_frame(image_path=image_path)
+
         if frame is None:
-            return None
+            logger.error("None object passed for 'image_path'. Please ensure a valid object of type 'str' or 'Path' is passed.")
+            return
 
         aruco_tags_loc = self._locate_aruco_tags(image=frame)
         logger.debug(aruco_tags_loc)
         if len(aruco_tags_loc) < 4:
             logger.error("Failed to detect all 4 ArUco markers.")
-            return None
+            return
 
         self._generate_grid(
             cell_resolution=cell_resolution,
@@ -388,9 +355,9 @@ class MapGenerator:
             image=preproc_and_warped_image,
             dilation_margin=dilation_margin,
         )
-        self._detect_start(image=preproc_and_warped_image)
-        self._detect_goal(image=preproc_and_warped_image)
 
+        self._detect_fire(frame)
+        self._detect_start(self._robot_tag_id, frame)
         self._post_process_grid()
 
         if self._debug:

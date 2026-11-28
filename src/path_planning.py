@@ -5,10 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from data_types import Map, Path, Point, State
 from loguru import logger
+from map_handler import OBSTACLE_WEIGHT
 from matplotlib.patches import Patch
 from utils import angle_diff
-
-from map_generation import OBSTACLE_WEIGHT
 
 TURNING_WEIGHT = 5.0 / 180.0
 MOVEMENT_WEIGHT = 1.0
@@ -92,11 +91,13 @@ class PathPlanner:
             turning_cost = 0.0
         return float((dx + dy) + (np.sqrt(2) - 2) * min(dx, dy) + turning_cost)
 
-    def plan(self, map: Map, prune: bool = True, lookahead_distance: int = 5, max_cost: float = 0.0) -> tuple[Path | None, set[Point], int]:
+    def plan(
+        self, map: Map, prune: bool = True, lookahead_distance: int = 5, max_cost: float = 0.0
+    ) -> tuple[Path | None, set[Point], int]:
         """
         Run the A* search algorithm on the input Grid,
         start -> goal and return a Path object.
-        If prune is True it will post-process optimize the path. 
+        If prune is True it will post-process optimize the path.
         """
         start_cell = (int(round(map.start_state.position[0])), int(round(map.start_state.position[1])))
         goal_cell = (int(round(map.goal_state.position[0])), int(round(map.goal_state.position[1])))
@@ -169,7 +170,7 @@ class PathPlanner:
 
             if prune:
                 ideal_path = self._line_of_sight_pruning(map, ideal_path, lookahead_distance, max_cost)
-            
+
             return ideal_path, explored, operation_count
         else:
             logger.info("Path planning could not find a solution.")
@@ -254,7 +255,6 @@ class PathPlanner:
         if self.debug:
             self._display_path(map, pruned_path)
         return self._convert_path_from_cells_to_points(pruned_path, map)
-
 
     def _convert_path_from_cells_to_points(self, path: Path, grid_map: Map) -> Path:
         """

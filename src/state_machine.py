@@ -1,7 +1,7 @@
 from data_types import Command, Map, Mode, SensorData, State
 from local_avoidance import LocalAvoider
 from loguru import logger
-from map_generation import MapGenerator
+from map_handler import MapHandler
 from path_following_pid import PIDController
 from path_planning import PathPlanner
 from pose_estimation import PoseEstimator
@@ -21,7 +21,7 @@ class StateMachine:
     def __init__(
         self,
         map: Map,
-        map_generator: MapGenerator,
+        map_generator: MapHandler,
         path_planner: PathPlanner,
         pose_estimator: PoseEstimator,
         path_follower: PIDController,
@@ -36,7 +36,7 @@ class StateMachine:
         self._current_state: State = map.start_state
 
         self._map = map
-        self._map_generator: MapGenerator = map_generator
+        self._map_generator: MapHandler = map_generator
         self._path_planner: PathPlanner = path_planner
         self._path_follower: PIDController = path_follower
         self._pose_estimator: PoseEstimator = pose_estimator
