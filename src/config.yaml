@@ -2,3 +2,21 @@
 calibration:
   v_coef: 0.0293 # cm/s/unit
   w_coef: 0.1781 # deg/s/unit
+
+# Particle filter (pose_estimation.py)
+particle_filter:
+  n_particles: 500
+  init_pos_std_cm: 1.0           # spread of the cloud around a known pose
+  init_heading_std_deg: 3.0
+  v_scale_std: 0.04              # per-particle distance error (odometry tests, ~4%)
+  w_scale_std: 0.12              # per-particle rotation error (odometry tests, ~12%)
+  drift_deg_per_sqrt_cm: 0.45    # straight-line heading drift (~2.5 deg over 30 cm)
+  resample_pos_std_cm: 0.2       # jitter added after resampling
+  resample_heading_std_deg: 0.5
+  camera_pos_std_cm: 1.0         # guess, to measure with the camera
+  camera_heading_std_deg: 3.0    # guess, to measure with the camera
+
+# Kidnapping = robot lifted off the ground (pose_estimation.is_kidnapped)
+kidnapping:
+  ground_threshold: 50          # prox.ground.delta: black on ground > 100, lifted ~0 (ground_sensor_test.ipynb)
+  min_lifted_steps: 3            # consecutive steps below threshold before declaring kidnapped
