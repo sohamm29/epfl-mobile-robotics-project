@@ -2,11 +2,8 @@ from pathlib import Path
 
 import numpy as np
 import yaml
-from loguru import logger
-from utils import angle_clamp
-
-
 from data_types import SensorData, State
+from loguru import logger
 
 CONFIG_PATH = Path(__file__).with_name("config.yaml")
 
